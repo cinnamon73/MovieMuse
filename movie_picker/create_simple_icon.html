@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Movie Picker Icon Generator</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            text-align: center;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: white;
+        }
+        canvas {
+            border: 2px solid #673ab7;
+            margin: 20px;
+        }
+        button {
+            background-color: #673ab7;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background-color: #5e35b1;
+        }
+        .info {
+            max-width: 600px;
+            margin: 0 auto;
+            text-align: left;
+            background-color: #2a2a2a;
+            padding: 20px;
+            border-radius: 10px;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Movie Picker Icon Generator</h1>
+    <p>This tool creates placeholder icons for the Movie Picker app.</p>
+    
+    <canvas id="icon1024" width="1024" height="1024"></canvas>
+    <canvas id="icon512" width="512" height="512"></canvas>
+    
+    <div>
+        <button onclick="generateIcons()">Generate Icons</button>
+        <button onclick="downloadIcon('icon1024', 'app_icon.png')">Download App Icon (1024x1024)</button>
+        <button onclick="downloadIcon('icon512', 'splash_icon.png')">Download Splash Icon (512x512)</button>
+    </div>
+    
+    <div class="info">
+        <h3>Instructions:</h3>
+        <ol>
+            <li>Click "Generate Icons" to create the placeholder icons</li>
+            <li>Right-click each canvas and "Save image as..." OR use the download buttons</li>
+            <li>Save the 1024x1024 image as <code>app_icon.png</code> in <code>assets/icons/</code></li>
+            <li>Save the 512x512 image as <code>splash_icon.png</code> in <code>assets/icons/</code></li>
+            <li>Run the Flutter commands to generate platform-specific icons</li>
+        </ol>
+        
+        <h3>Flutter Commands:</h3>
+        <pre>
+flutter pub get
+flutter pub run flutter_launcher_icons:main
+flutter pub run flutter_native_splash:create
+        </pre>
+    </div>
+
+    <script>
+        function generateIcons() {
+            generateIcon('icon1024', 1024);
+            generateIcon('icon512', 512);
+        }
+        
+        function generateIcon(canvasId, size) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext('2d');
+            
+            // Clear canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Background gradient
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#673ab7');
+            gradient.addColorStop(1, '#3f51b5');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Film strip background
+            ctx.fillStyle = 'rgba(44, 44, 44, 0.8)';
+            ctx.fillRect(size * 0.1, size * 0.25, size * 0.8, size * 0.5);
+            
+            // Film holes (top)
+            ctx.fillStyle = '#1a1a1a';
+            for (let i = 0; i < 8; i++) {
+                const x = size * 0.15 + (i * size * 0.1);
+                const y = size * 0.3;
+                const radius = size * 0.02;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+            
+            // Film holes (bottom)
+            for (let i = 0; i < 8; i++) {
+                const x = size * 0.15 + (i * size * 0.1);
+                const y = size * 0.7;
+                const radius = size * 0.02;
+                ctx.beginPath();
+                ctx.arc(x, y, radius, 0, 2 * Math.PI);
+                ctx.fill();
+            }
+            
+            // Main movie frame
+            const frameGradient = ctx.createLinearGradient(0, 0, size, size);
+            frameGradient.addColorStop(0, '#ffd700');
+            frameGradient.addColorStop(1, '#ffb300');
+            ctx.fillStyle = frameGradient;
+            ctx.fillRect(size * 0.18, size * 0.38, size * 0.64, size * 0.24);
+            
+            // Play button circle
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.9)';
+            ctx.beginPath();
+            ctx.arc(size * 0.5, size * 0.5, size * 0.08, 0, 2 * Math.PI);
+            ctx.fill();
+            
+            // Play button triangle
+            ctx.fillStyle = '#673ab7';
+            ctx.beginPath();
+            ctx.moveTo(size * 0.47, size * 0.455);
+            ctx.lineTo(size * 0.47, size * 0.545);
+            ctx.lineTo(size * 0.56, size * 0.5);
+            ctx.closePath();
+            ctx.fill();
+            
+            // App title
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.05}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.fillText('Movie Picker', size * 0.5, size * 0.85);
+            
+            // Stars
+            ctx.fillStyle = '#ffd700';
+            for (let i = 0; i < 4; i++) {
+                drawStar(ctx, size * 0.6 + (i * size * 0.04), size * 0.58, size * 0.015);
+            }
+            ctx.fillStyle = '#e0e0e0';
+            drawStar(ctx, size * 0.6 + (4 * size * 0.04), size * 0.58, size * 0.015);
+            
+            console.log(`Generated ${size}x${size} icon`);
+        }
+        
+        function drawStar(ctx, x, y, radius) {
+            const spikes = 5;
+            const outerRadius = radius;
+            const innerRadius = radius * 0.4;
+            
+            ctx.beginPath();
+            for (let i = 0; i < spikes * 2; i++) {
+                const angle = (i * Math.PI) / spikes;
+                const r = i % 2 === 0 ? outerRadius : innerRadius;
+                const dx = x + Math.cos(angle - Math.PI / 2) * r;
+                const dy = y + Math.sin(angle - Math.PI / 2) * r;
+                
+                if (i === 0) {
+                    ctx.moveTo(dx, dy);
+                } else {
+                    ctx.lineTo(dx, dy);
+                }
+            }
+            ctx.closePath();
+            ctx.fill();
+        }
+        
+        function downloadIcon(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Generate icons on page load
+        window.onload = function() {
+            generateIcons();
+        };
+    </script>
+</body>
+</html> 

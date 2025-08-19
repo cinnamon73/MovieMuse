@@ -1,0 +1,239 @@
+import 'package:flutter/material.dart';
+import '../models/movie.dart';
+import '../services/movie_service.dart';
+import 'movie_card.dart';
+
+class SwipeableMovieCard extends StatefulWidget {
+  final Movie movie;
+  final bool isTop;
+  final VoidCallback onSwipeLeft;
+  final VoidCallback onSwipeRight;
+  final VoidCallback onSwipeDown;
+  final VoidCallback onSwipeUp;
+  final bool isBookmarked;
+  final bool isWatched;
+  final MovieService movieService;
+  final double? rating;
+  final ValueChanged<double>? onRatingChanged;
+  final String? recommendedBy; // NEW: Who recommended this movie
+
+  const SwipeableMovieCard({
+    required this.movie,
+    required this.isTop,
+    required this.onSwipeLeft,
+    required this.onSwipeRight,
+    required this.onSwipeDown,
+    required this.onSwipeUp,
+    required this.isBookmarked,
+    required this.isWatched,
+    required this.movieService,
+    this.rating,
+    this.onRatingChanged,
+    this.recommendedBy, // NEW: Optional recommender name
+    super.key,
+  });
+
+  @override
+  State<SwipeableMovieCard> createState() => _SwipeableMovieCardState();
+}
+
+class _SwipeableMovieCardState extends State<SwipeableMovieCard>
+    with SingleTickerProviderStateMixin {
+  Offset _offset = Offset.zero;
+  double _angle = 0.0;
+  late AnimationController _animationController;
+  late Animation<Offset> _offsetAnimation;
+  late Animation<double> _angleAnimation;
+
+  @override
+  void initState() {
+    super.initState();
+    _animationController = AnimationController(
+      duration: const Duration(milliseconds: 300),
+      vsync: this,
+    );
+    _offsetAnimation = Tween<Offset>(
+      begin: Offset.zero,
+      end: Offset.zero,
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+    _angleAnimation = Tween<double>(begin: 0.0, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+  }
+
+  @override
+  void dispose() {
+    _animationController.dispose();
+    super.dispose();
+  }
+
+  void _animateCardOffScreen(Offset targetOffset, VoidCallback onComplete) {
+    _offsetAnimation = Tween<Offset>(begin: _offset, end: targetOffset).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _angleAnimation = Tween<double>(
+      begin: _angle,
+      end: _angle * 2, // Exaggerate the rotation as it flies off
+    ).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _animationController.forward(from: 0.0).then((_) {
+      if (mounted) {
+        onComplete();
+        // Reset for next card
+        setState(() {
+          _offset = Offset.zero;
+          _angle = 0.0;
+        });
+      }
+    });
+  }
+
+  void _resetCard() {
+    _offsetAnimation = Tween<Offset>(begin: _offset, end: Offset.zero).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _angleAnimation = Tween<double>(begin: _angle, end: 0.0).animate(
+      CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
+    );
+
+    _animationController.forward(from: 0.0).then((_) {
+      if (mounted) {
+        setState(() {
+          _offset = Offset.zero;
+          _angle = 0.0;
+        });
+      }
+    });
+  }
+
+  double get _swipeProgress {
+    if (_offset.dx.abs() < 30) return 0; // Lowered from 50 for earlier feedback
+    return (_offset.dx / 150).clamp(-1, 1); // Lowered from 200 for more responsive feedback
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!widget.isTop) {
+      return _OptimizedMovieCard(
+        movie: widget.movie,
+        onMarkWatched: widget.onSwipeRight,
+        onBookmark: widget.onSwipeDown,
+        isBookmarked: widget.isBookmarked,
+        isWatched: widget.isWatched,
+        movieService: widget.movieService,
+        rating: widget.rating,
+        onRatingChanged: widget.onRatingChanged,
+        recommendedBy: widget.recommendedBy,
+      );
+    }
+
+    return GestureDetector(
+      onPanUpdate: (details) {
+        setState(() {
+          _offset += details.delta;
+          _angle = 0.25 * _offset.dx / 200; // max ~14deg
+        });
+      },
+      onPanEnd: (details) {
+        final velocity = details.velocity.pixelsPerSecond;
+        // Improved sensitivity: lower thresholds and better velocity detection
+        final shouldSwipeRight = _offset.dx > 80 || velocity.dx > 400; // Lowered from 100/600
+        final shouldSwipeLeft = _offset.dx < -80 || velocity.dx < -400; // Lowered from -100/-600
+        final shouldSwipeUp = _offset.dy < -80 || velocity.dy < -400; // Lowered from -100/-600
+        final shouldSwipeDown = _offset.dy > 80 || velocity.dy > 400; // Lowered from 100/600
+
+        if (shouldSwipeRight) {
+          _animateCardOffScreen(const Offset(400, 0), widget.onSwipeRight);
+        } else if (shouldSwipeLeft) {
+          _animateCardOffScreen(const Offset(-400, 0), widget.onSwipeLeft);
+        } else if (shouldSwipeUp) {
+          _animateCardOffScreen(const Offset(0, -400), widget.onSwipeUp);
+        } else if (shouldSwipeDown) {
+          _animateCardOffScreen(const Offset(0, 400), widget.onSwipeDown);
+        } else {
+          _resetCard();
+        }
+      },
+      child: AnimatedBuilder(
+        animation: _animationController,
+        builder: (context, child) {
+          final currentOffset =
+              _animationController.isAnimating
+                  ? _offsetAnimation.value
+                  : _offset;
+          final currentAngle =
+              _animationController.isAnimating ? _angleAnimation.value : _angle;
+
+          return Transform(
+            alignment: Alignment.bottomCenter,
+            transform:
+                Matrix4.identity()
+                  ..translate(currentOffset.dx, currentOffset.dy)
+                  ..rotateZ(currentAngle),
+            child: _OptimizedMovieCard(
+              movie: widget.movie,
+              onMarkWatched: widget.onSwipeRight,
+              onBookmark: widget.onSwipeDown,
+              isBookmarked: widget.isBookmarked,
+              isWatched: widget.isWatched,
+              movieService: widget.movieService,
+              swipeProgress: _swipeProgress,
+              rating: widget.rating,
+              onRatingChanged: widget.onRatingChanged,
+              recommendedBy: widget.recommendedBy,
+            ),
+          );
+        },
+      ),
+    );
+  }
+}
+
+// Optimized MovieCard wrapper with const constructor
+class _OptimizedMovieCard extends StatelessWidget {
+  final Movie movie;
+  final VoidCallback onMarkWatched;
+  final VoidCallback onBookmark;
+  final bool isBookmarked;
+  final bool isWatched;
+  final MovieService movieService;
+  final double swipeProgress;
+  final double? rating;
+  final ValueChanged<double>? onRatingChanged;
+  final String? recommendedBy; // NEW: Who recommended this movie
+
+  const _OptimizedMovieCard({
+    required this.movie,
+    required this.onMarkWatched,
+    required this.onBookmark,
+    required this.isBookmarked,
+    required this.isWatched,
+    required this.movieService,
+    this.swipeProgress = 0.0,
+    this.rating,
+    this.onRatingChanged,
+    this.recommendedBy, // NEW: Optional recommender name
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return MovieCard(
+      movie: movie,
+      onMarkWatched: onMarkWatched,
+      onBookmark: onBookmark,
+      isBookmarked: isBookmarked,
+      isWatched: isWatched,
+      movieService: movieService,
+      swipeProgress: swipeProgress,
+      rating: rating,
+      onRatingChanged: onRatingChanged,
+      recommendedBy: recommendedBy, // NEW: Pass recommender info
+    );
+  }
+}

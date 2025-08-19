@@ -1,0 +1,47 @@
+{
+  "project_info": {
+    "project_number": "581941386127",
+    "project_id": "moviemuse-2bc27",
+    "storage_bucket": "moviemuse-2bc27.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:581941386127:android:de19085179e1e1ef50c9fa",
+        "android_client_info": {
+          "package_name": "com.moviemuse"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "581941386127-14ui7u5mg8mvm9vek70qr3odtci0u1n3.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.moviemuse",
+            "certificate_hash": "55de2ad4a61ac5e3427c9e2d97c6cf8e2cc9b65e"
+          }
+        },
+        {
+          "client_id": "581941386127-54qmi5daok0n1laqsc8ke7e9v82uvag6.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyC4LbAky7N2za_4aHvKPCbQ5LpC8jfdwAo"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "581941386127-54qmi5daok0n1laqsc8ke7e9v82uvag6.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

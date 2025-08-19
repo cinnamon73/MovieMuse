@@ -1,0 +1,16 @@
+services:
+  - type: web
+    name: moviemuse-semantic-server
+    env: node
+    plan: free
+    region: oregon
+    buildCommand: npm ci --only=production
+    startCommand: node server.js
+    autoDeploy: true
+    branch: main
+    healthCheckPath: /health
+    envVars:
+      - key: OPENAI_API_KEY
+        sync: false
+      - key: TMDB_API_KEY
+        sync: false 
