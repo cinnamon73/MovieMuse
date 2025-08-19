@@ -708,14 +708,30 @@ app.post('/semantic/search', async (req, res) => {
     }
 
     scored.sort((a, b) => b.similarity - a.similarity || (b.vote_average || 0) - (a.vote_average || 0));
-    return res.json({
-      success: true,
-      count: scored.length,
-      results: scored.slice(0, 100),
-    });
+    return res.json({ success: true, count: scored.length, results: scored.slice(0, 100) });
   } catch (err) {
     console.error('❌ Semantic search error:', err.message);
-    return res.status(500).json({ error: 'semantic_search_failed', message: err.message });
+    // Fallback: keyword search so the client still gets useful results
+    try {
+      const q = (req.body && req.body.description) || '';
+      const params = { api_key: TMDB_API_KEY, query: q.slice(0, 500), include_adult: false, page: 1 };
+      const url = `${TMDB_BASE_URL}/search/movie`;
+      const resp = await axios.get(url, { params, timeout: 10000 });
+      const list = (resp.data && resp.data.results) || [];
+      const mapped = list.slice(0, 50).map(m => ({
+        id: m.id,
+        title: m.title,
+        overview: m.overview,
+        release_date: m.release_date,
+        vote_average: m.vote_average,
+        poster_path: m.poster_path,
+        similarity: null,
+      }));
+      return res.json({ success: true, fallback: true, reason: err.message, count: mapped.length, results: mapped });
+    } catch (fallbackErr) {
+      console.error('❌ Fallback keyword search failed:', fallbackErr.message);
+      return res.status(500).json({ error: 'semantic_search_failed', message: err.message });
+    }
   }
 });
 
@@ -759,7 +775,36 @@ app.post('/semantic/streaming', async (req, res) => {
     return res.json({ success: true, count: scored.length, results: scored.slice(0, 50) });
   } catch (err) {
     console.error('❌ Semantic streaming error:', err.message);
-    return res.status(500).json({ error: 'semantic_streaming_failed', message: err.message });
+    // Fallback: popular discover for requested providers
+    try {
+      const { platforms, region = 'US', language = 'en' } = req.body || {};
+      const providerIds = Array.isArray(platforms) ? getProviderIds(platforms, region) : [];
+      const params = {
+        api_key: TMDB_API_KEY,
+        with_watch_providers: providerIds.join('|'),
+        watch_region: region,
+        include_adult: false,
+        include_video: false,
+        sort_by: 'popularity.desc',
+        page: 1,
+        with_original_language: language,
+        'vote_count.gte': 10,
+      };
+      const url = `${TMDB_BASE_URL}/discover/movie`;
+      const resp = await axios.get(url, { params, timeout: 10000 });
+      const list = (resp.data && resp.data.results) || [];
+      const mapped = list.slice(0, 50).map(m => ({
+        id: m.id,
+        title: m.title,
+        overview: m.overview,
+        poster_path: m.poster_path,
+        similarity: null,
+      }));
+      return res.json({ success: true, fallback: true, reason: err.message, count: mapped.length, results: mapped });
+    } catch (fallbackErr) {
+      console.error('❌ Fallback streaming discover failed:', fallbackErr.message);
+      return res.status(500).json({ error: 'semantic_streaming_failed', message: err.message });
+    }
   }
 });
 
