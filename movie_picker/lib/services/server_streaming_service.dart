@@ -9,15 +9,26 @@ class ServerStreamingService {
   final Dio _dio;
   // Use localhost for Windows Flutter, 10.0.2.2 for Android emulator, and your computer's IP for physical devices
   static String get _serverBaseUrl {
-    // Optional override via .env
-    final override = dotenv.env['SEMANTIC_SERVER_URL'];
-    if (override != null && override.isNotEmpty) return override;
+    // 1) .env override (preferred)
+    final dotEnvOverride = dotenv.env['SEMANTIC_SERVER_URL'];
+    if (dotEnvOverride != null && dotEnvOverride.isNotEmpty) return dotEnvOverride;
+
+    // 2) Compile-time or process environment (fallbacks)
+    const compileTime = String.fromEnvironment('SEMANTIC_SERVER_URL');
+    if (compileTime.isNotEmpty) return compileTime;
+    try {
+      final procEnv = Platform.environment['SEMANTIC_SERVER_URL'];
+      if (procEnv != null && procEnv.isNotEmpty) return procEnv;
+    } catch (_) {}
+
+    // 3) Platform defaults
     if (kIsWeb) return 'http://localhost:3001';
     try {
       if (Platform.isAndroid) return 'http://10.0.2.2:3001';
-      // iOS simulator can use localhost, physical device needs LAN IP
       if (Platform.isIOS) return 'http://localhost:3001';
-      // Desktop platforms
+      // In production builds where no overrides are set, prefer the hosted server
+      // so end-users don't need a local server.
+      if (kReleaseMode) return 'https://moviemuse-s49g.onrender.com';
       return 'http://localhost:3001';
     } catch (_) {
       return 'http://localhost:3001';
