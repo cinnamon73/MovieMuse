@@ -813,20 +813,27 @@ app.post('/semantic/search', async (req, res) => {
       console.warn('⚠️ Keyword-assisted discover failed:', kwErr.message);
     }
 
-    // Compute embeddings and similarity
+    // Compute embeddings and similarity (robust: cap size and skip per-movie errors)
+    const MAX_CANDIDATES = 120;
+    const capped = candidates.slice(0, MAX_CANDIDATES);
     const scored = [];
-    for (const m of candidates) {
-      const mVec = await embedMovie(m);
-      const score = cosineSim(qVec, mVec);
-      scored.push({
-        id: m.id,
-        title: m.title,
-        overview: m.overview,
-        release_date: m.release_date,
-        vote_average: m.vote_average,
-        poster_path: m.poster_path,
-        similarity: score,
-      });
+    for (const m of capped) {
+      try {
+        const mVec = await embedMovie(m);
+        const score = cosineSim(qVec, mVec);
+        scored.push({
+          id: m.id,
+          title: m.title,
+          overview: m.overview,
+          release_date: m.release_date,
+          vote_average: m.vote_average,
+          poster_path: m.poster_path,
+          similarity: score,
+        });
+      } catch (perErr) {
+        // Skip movies that fail to embed to avoid falling back entirely
+        continue;
+      }
     }
 
     scored.sort((a, b) => b.similarity - a.similarity || (b.vote_average || 0) - (a.vote_average || 0));
