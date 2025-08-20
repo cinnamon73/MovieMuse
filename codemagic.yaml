@@ -1,0 +1,42 @@
+workflows:
+  ios_app_store:
+    name: iOS App Store
+    max_build_duration: 60
+    instance_type: mac_mini_m1
+    environment:
+      flutter: stable
+      xcode: 15.4
+      cocoapods: default
+      vars:
+        SEMANTIC_SERVER_URL: https://moviemuse-s49g.onrender.com
+      groups:
+        - app_store_connect
+    scripts:
+      - name: Setup Flutter
+        script: |
+          flutter --version
+          flutter precache --ios
+      - name: Resolve dependencies
+        script: |
+          cd movie_picker
+          flutter clean
+          flutter pub get
+      - name: Install CocoaPods
+        script: |
+          cd movie_picker/ios
+          pod install --repo-update
+      - name: Build IPA (release)
+        script: |
+          cd movie_picker
+          flutter build ipa --release --build-name=1.0.4 --build-number=8 --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
+    artifacts:
+      - movie_picker/build/ios/ipa/*.ipa
+      - movie_picker/build/ios/archive/*.xcarchive
+      - movie_picker/ios/Flutter/*.xcconfig
+    publishing:
+      app_store_connect:
+        api_key: $APP_STORE_CONNECT_API_KEY
+        key_id: $APP_STORE_CONNECT_KEY_ID
+        issuer_id: $APP_STORE_CONNECT_ISSUER_ID
+        submit_to_testflight: true
+
