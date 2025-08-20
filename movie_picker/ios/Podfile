@@ -30,7 +30,7 @@ flutter_ios_podfile_setup
 target 'Runner' do
   # If you use Swift, this ensures all pods use Swift 5
   # use_frameworks! :linkage => :static
-  # use_modular_headers!
+  use_modular_headers!
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
