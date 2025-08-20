@@ -686,6 +686,41 @@ app.post('/semantic/search', async (req, res) => {
 
     const qVec = await embedText(description);
 
+    // Derive year constraints from free-form text if not explicitly provided
+    let derivedFrom = yearFrom;
+    let derivedTo = yearTo;
+    try {
+      const text = (description || '').toLowerCase();
+      // Detect exact year mentions like 1999, 2001, 2015
+      const yearMatches = Array.from(text.matchAll(/\b(19\d{2}|20\d{2})\b/g)).map(m => parseInt(m[1], 10));
+      if (yearMatches.length > 0) {
+        const minY = Math.min(...yearMatches);
+        const maxY = Math.max(...yearMatches);
+        derivedFrom = derivedFrom || minY;
+        derivedTo = derivedTo || maxY;
+      }
+      // Detect decades like 1980s, 90s, 2000s
+      const decadeFull = text.match(/\b(19\d0|20\d0)s\b/);
+      if (decadeFull) {
+        const base = parseInt(decadeFull[1], 10);
+        derivedFrom = derivedFrom || base;
+        derivedTo = derivedTo || (base + 9);
+      }
+      const decadeShort = text.match(/\b(\d{2})0s\b/); // '80s' -> ambiguous century, assume 1980s
+      if (decadeShort) {
+        const two = parseInt(decadeShort[1], 10);
+        const base = two <= 24 ? 2000 + (two * 10) : 1900 + (two * 10); // heuristic
+        derivedFrom = derivedFrom || base;
+        derivedTo = derivedTo || (base + 9);
+      }
+      // Phrases like '2000s'
+      const twoThousands = text.match(/\b2000s\b/);
+      if (twoThousands) {
+        derivedFrom = derivedFrom || 2000;
+        derivedTo = derivedTo || 2009;
+      }
+    } catch (_) {}
+
     // Gather candidate movies from multiple TMDB sources so free-form queries can still find the right film
     const candidates = [];
 
@@ -720,8 +755,8 @@ app.post('/semantic/search', async (req, res) => {
           with_original_language: language,
           'vote_count.gte': 10,
         };
-        if (yearFrom) params['primary_release_date.gte'] = `${yearFrom}-01-01`;
-        if (yearTo) params['primary_release_date.lte'] = `${yearTo}-12-31`;
+        if (derivedFrom) params['primary_release_date.gte'] = `${derivedFrom}-01-01`;
+        if (derivedTo) params['primary_release_date.lte'] = `${derivedTo}-12-31`;
 
         const url = `${TMDB_BASE_URL}/discover/movie`;
         const resp = await axios.get(url, { params, timeout: 10000 });
@@ -761,6 +796,8 @@ app.post('/semantic/search', async (req, res) => {
             with_original_language: language,
             'vote_count.gte': 10,
           };
+          if (derivedFrom) dParams['primary_release_date.gte'] = `${derivedFrom}-01-01`;
+          if (derivedTo) dParams['primary_release_date.lte'] = `${derivedTo}-12-31`;
           const dUrl = `${TMDB_BASE_URL}/discover/movie`;
           const dResp = await axios.get(dUrl, { params: dParams, timeout: 10000 });
           const dList = (dResp.data && dResp.data.results) || [];
