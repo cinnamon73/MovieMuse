@@ -2019,14 +2019,7 @@ class _HomeScreenState extends State<HomeScreen>
         onShowHelp: _showHelp,
         onShowPrivacySettings: _showPrivacySettings,
         onShowSettings: _showSettings, // New callback
-        onShowSemanticSearch: isAnonymousUser
-            ? () => _showSignUpPrompt('AI Semantic Search is only available for registered users. Sign up to use this feature!')
-            : () {
-                Navigator.pop(context);
-                Navigator.of(context).push(
-                  MaterialPageRoute(builder: (_) => const SemanticSearchPage()),
-                );
-              },
+        onShowSemanticSearch: null,
         isAnonymousUser: isAnonymousUser,
       ),
       body: SafeArea(

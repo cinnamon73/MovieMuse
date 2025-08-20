@@ -59,18 +59,7 @@ class AppDrawer extends StatelessWidget {
               ),
               onTap: onShowSearch,
             ),
-            if (onShowSemanticSearch != null)
-              ListTile(
-                leading: isAnonymousUser
-                    ? const Icon(Icons.lock, color: Colors.white38)
-                    : const Icon(Icons.auto_awesome, color: Colors.lightBlueAccent),
-                title: const Text(
-                  'AI Semantic Search',
-                  style: TextStyle(color: Colors.white),
-                ),
-                onTap: isAnonymousUser ? null : onShowSemanticSearch!,
-                enabled: !isAnonymousUser,
-            ),
+            // Temporarily hidden: AI Semantic Search
             ListTile(
               leading: isAnonymousUser
                   ? const Icon(Icons.lock, color: Colors.white38)
