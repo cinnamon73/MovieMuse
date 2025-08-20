@@ -49,6 +49,40 @@ async function embedMovie(movie) {
   return vec;
 }
 
+// Batch embed multiple movies in a single OpenAI call for performance
+async function embedMoviesBatch(movies) {
+  if (!openai) throw new Error('OpenAI API key not configured');
+  // Build list of texts, reusing cache where possible
+  const toEmbed = [];
+  const indices = [];
+  const vectors = new Array(movies.length).fill(null);
+  for (let i = 0; i < movies.length; i++) {
+    const m = movies[i];
+    const key = `m:${m.id}`;
+    const cached = movieEmbeddingCache.get(key);
+    if (cached) {
+      vectors[i] = cached;
+      continue;
+    }
+    const text = `${m.title} (${m.release_date || ''})\n${m.overview || ''}`.trim().slice(0, 8000);
+    toEmbed.push(text);
+    indices.push(i);
+  }
+
+  if (toEmbed.length > 0) {
+    const resp = await openai.embeddings.create({ model: 'text-embedding-3-small', input: toEmbed });
+    const embs = resp.data.map(d => d.embedding);
+    for (let j = 0; j < embs.length; j++) {
+      const idx = indices[j];
+      vectors[idx] = embs[j];
+      const m = movies[idx];
+      movieEmbeddingCache.set(`m:${m.id}`, embs[j]);
+    }
+  }
+
+  return vectors;
+}
+
 const app = express();
 const PORT = process.env.PORT || 3001;
 
@@ -813,13 +847,16 @@ app.post('/semantic/search', async (req, res) => {
       console.warn('⚠️ Keyword-assisted discover failed:', kwErr.message);
     }
 
-    // Compute embeddings and similarity (robust: cap size and skip per-movie errors)
-    const MAX_CANDIDATES = 120;
+    // Compute embeddings and similarity using a single batched call
+    const MAX_CANDIDATES = 60;
     const capped = candidates.slice(0, MAX_CANDIDATES);
-    const scored = [];
-    for (const m of capped) {
-      try {
-        const mVec = await embedMovie(m);
+    let scored = [];
+    try {
+      const movieVectors = await embedMoviesBatch(capped);
+      for (let i = 0; i < capped.length; i++) {
+        const m = capped[i];
+        const mVec = movieVectors[i];
+        if (!mVec) continue; // skip if embedding failed
         const score = cosineSim(qVec, mVec);
         scored.push({
           id: m.id,
@@ -830,9 +867,16 @@ app.post('/semantic/search', async (req, res) => {
           poster_path: m.poster_path,
           similarity: score,
         });
-      } catch (perErr) {
-        // Skip movies that fail to embed to avoid falling back entirely
-        continue;
+      }
+    } catch (batchErr) {
+      // If batch failed, fall back to per-movie best effort for a small subset
+      const fallbackSubset = capped.slice(0, 20);
+      for (const m of fallbackSubset) {
+        try {
+          const mVec = await embedMovie(m);
+          const score = cosineSim(qVec, mVec);
+          scored.push({ id: m.id, title: m.title, overview: m.overview, release_date: m.release_date, vote_average: m.vote_average, poster_path: m.poster_path, similarity: score });
+        } catch (_) {}
       }
     }
 
