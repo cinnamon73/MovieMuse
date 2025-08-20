@@ -628,7 +628,10 @@ app.get('/health', (req, res) => {
     cache_stats: {
       platform_cache_size: platformCache.keys().length,
       query_cache_size: queryCache.keys().length
-    }
+    },
+    openai_configured: !!OPENAI_API_KEY,
+    openai_initialized: !!openai,
+    environment: process.env.NODE_ENV || 'development'
   });
 });
 
@@ -664,9 +667,29 @@ app.post('/semantic/search', async (req, res) => {
 
     const qVec = await embedText(description);
 
-    // Gather candidate movies from TMDB discover with broad filters, multiple sorts
-    const sorts = ['popularity.desc', 'vote_average.desc'];
+    // Gather candidate movies from multiple TMDB sources so free-form queries can still find the right film
     const candidates = [];
+
+    // 1) Direct search by free-form description (often pulls the obvious match like "Shrek")
+    try {
+      const searchParams = {
+        api_key: TMDB_API_KEY,
+        query: description.slice(0, 500),
+        include_adult: false,
+        page: 1,
+      };
+      const searchUrl = `${TMDB_BASE_URL}/search/movie`;
+      const searchResp = await axios.get(searchUrl, { params: searchParams, timeout: 10000 });
+      const searchList = (searchResp.data && searchResp.data.results) || [];
+      for (const m of searchList) {
+        if (!candidates.some(c => c.id === m.id)) candidates.push(m);
+      }
+    } catch (e) {
+      console.warn('⚠️ TMDB search fallback failed:', e.message);
+    }
+
+    // 2) Discover with broad sorts to pull in high-signal, popular titles
+    const sorts = ['popularity.desc', 'vote_average.desc'];
     for (const sort_by of sorts) {
       for (let p = 1; p <= Math.max(1, Math.min(maxPages, 5)); p++) {
         const params = {
@@ -689,6 +712,49 @@ app.post('/semantic/search', async (req, res) => {
           if (!candidates.some(c => c.id === m.id)) candidates.push(m);
         }
       }
+    }
+
+    // 3) Keyword-assisted discover: derive top tokens from description -> keyword IDs -> discover
+    try {
+      const tokens = Array.from(new Set(
+        (description || '')
+          .toLowerCase()
+          .split(/[^a-z0-9]+/g)
+          .filter(w => w && w.length >= 4 && !['movie', 'about', 'with', 'from', 'that', 'this', 'which'].includes(w))
+      ));
+      const topTokens = tokens.slice(0, 5);
+      for (const tok of topTokens) {
+        try {
+          const kwResp = await axios.get(`${TMDB_BASE_URL}/search/keyword`, {
+            params: { api_key: TMDB_API_KEY, query: tok, page: 1 },
+            timeout: 10000,
+          });
+          const kwList = (kwResp.data && kwResp.data.results) || [];
+          if (kwList.length === 0) continue;
+          const keywordId = kwList[0].id;
+          const dParams = {
+            api_key: TMDB_API_KEY,
+            with_keywords: keywordId,
+            include_adult: false,
+            include_video: false,
+            sort_by: 'popularity.desc',
+            page: 1,
+            with_original_language: language,
+            'vote_count.gte': 10,
+          };
+          const dUrl = `${TMDB_BASE_URL}/discover/movie`;
+          const dResp = await axios.get(dUrl, { params: dParams, timeout: 10000 });
+          const dList = (dResp.data && dResp.data.results) || [];
+          for (const m of dList) {
+            if (!candidates.some(c => c.id === m.id)) candidates.push(m);
+          }
+        } catch (inner) {
+          // skip token on failure
+          continue;
+        }
+      }
+    } catch (kwErr) {
+      console.warn('⚠️ Keyword-assisted discover failed:', kwErr.message);
     }
 
     // Compute embeddings and similarity
