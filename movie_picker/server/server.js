@@ -662,7 +662,26 @@ app.post('/semantic/search', async (req, res) => {
     }
 
     if (!openai) {
-      return res.status(503).json({ error: 'Semantic search unavailable: missing OPENAI_API_KEY' });
+      // Graceful fallback when OpenAI is not configured
+      try {
+        const q = (req.body && req.body.description) || '';
+        const params = { api_key: TMDB_API_KEY, query: q.slice(0, 500), include_adult: false, page: 1 };
+        const url = `${TMDB_BASE_URL}/search/movie`;
+        const resp = await axios.get(url, { params, timeout: 10000 });
+        const list = (resp.data && resp.data.results) || [];
+        const mapped = list.slice(0, 50).map(m => ({
+          id: m.id,
+          title: m.title,
+          overview: m.overview,
+          release_date: m.release_date,
+          vote_average: m.vote_average,
+          poster_path: m.poster_path,
+          similarity: null,
+        }));
+        return res.json({ success: true, fallback: true, reason: 'OPENAI_API_KEY not configured', count: mapped.length, results: mapped });
+      } catch (fallbackErr) {
+        return res.status(503).json({ error: 'Semantic search unavailable and fallback failed', message: fallbackErr.message });
+      }
     }
 
     const qVec = await embedText(description);
