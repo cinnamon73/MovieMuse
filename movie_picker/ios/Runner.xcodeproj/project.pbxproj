@@ -373,6 +373,7 @@
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+				IPHONEOS_DEPLOYMENT_TARGET = 13.0;
 			};
 			name = Profile;
 		};
