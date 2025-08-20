@@ -31,10 +31,18 @@ workflows:
         script: |
           cd movie_picker/ios
           pod install --repo-update
-      - name: Build IPA (release)
+      - name: Build iOS (no codesign)
         script: |
           cd movie_picker
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist --build-name=1.0.4 --build-number=10 --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
+          flutter build ios --release --no-codesign --build-name=1.0.4 --build-number=10 --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
+      - name: Sign and export IPA
+        script: |
+          cd movie_picker
+          xcode-project build-ipa \
+            --workspace ios/Runner.xcworkspace \
+            --scheme Runner \
+            --archive-flags "-destination 'generic/platform=iOS'" \
+            --export-options-plist /Users/builder/export_options.plist
     artifacts:
       - movie_picker/build/ios/ipa/*.ipa
       - movie_picker/build/ios/archive/*.xcarchive
