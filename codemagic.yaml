@@ -34,7 +34,7 @@ workflows:
       - name: Build IPA (release)
         script: |
           cd movie_picker
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist --build-name=1.0.4 --build-number=9 --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
+          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist --build-name=1.0.4 --build-number=10 --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
     artifacts:
       - movie_picker/build/ios/ipa/*.ipa
       - movie_picker/build/ios/archive/*.xcarchive
