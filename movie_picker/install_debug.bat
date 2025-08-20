@@ -8,7 +8,7 @@ adb devices
 
 echo.
 echo Step 2: Uninstalling existing app (if any)...
-adb uninstall com.example.movie_picker
+adb uninstall com.simonmccorriston.moviemuse
 
 echo.
 echo Step 3: Cleaning Flutter project...

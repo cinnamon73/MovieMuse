@@ -8,7 +8,7 @@
 PRODUCT_NAME = movie_picker
 
 // The application's bundle identifier
-PRODUCT_BUNDLE_IDENTIFIER = com.example.moviePicker
+PRODUCT_BUNDLE_IDENTIFIER = com.simonmccorriston.moviemuse
 
 // The copyright displayed in application information
 PRODUCT_COPYRIGHT = Copyright © 2025 com.example. All rights reserved.

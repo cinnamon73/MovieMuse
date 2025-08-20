@@ -64,7 +64,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '581941386127',
     projectId: 'moviemuse-2bc27',
     storageBucket: 'moviemuse-2bc27.firebasestorage.app',
-    iosBundleId: 'com.example.moviePicker',
+    iosBundleId: 'com.simonmccorriston.moviemuse',
   );
 
   static const FirebaseOptions macos = FirebaseOptions(
@@ -73,7 +73,7 @@ class DefaultFirebaseOptions {
     messagingSenderId: '581941386127',
     projectId: 'moviemuse-2bc27',
     storageBucket: 'moviemuse-2bc27.firebasestorage.app',
-    iosBundleId: 'com.example.moviePicker',
+    iosBundleId: 'com.simonmccorriston.moviemuse',
   );
 
   static const FirebaseOptions windows = FirebaseOptions(

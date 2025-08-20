@@ -21,7 +21,7 @@
 adb devices
 
 # 2. Uninstall existing app (if any)
-adb uninstall com.example.movie_picker
+adb uninstall com.simonmccorriston.moviemuse
 
 # 3. Clean and build
 flutter clean
@@ -54,7 +54,7 @@ flutter run
 **Solution:**
 ```bash
 # Try these steps in order:
-adb uninstall com.example.movie_picker
+adb uninstall com.simonmccorriston.moviemuse
 flutter clean
 flutter pub get
 flutter run --verbose
