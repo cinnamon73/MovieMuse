@@ -12,6 +12,12 @@ workflows:
       groups:
         - app_store_connect
     scripts:
+      - name: Set up iOS code signing (App Store Connect)
+        script: |
+          keychain initialize
+          app-store-connect fetch-signing-files "com.simonmccorriston.moviemuse" --type IOS_APP_STORE --create
+          keychain add-certificates
+          xcode-project use-profiles
       - name: Setup Flutter
         script: |
           flutter --version
@@ -24,20 +30,22 @@ workflows:
       - name: Install CocoaPods
         script: |
           cd movie_picker/ios
-          pod repo update
-          pod install
-      - name: Build IPA (release)
+          pod install --repo-update
+      - name: Build IPA
         script: |
           cd movie_picker
-          flutter build ipa --release --build-name=1.0.4 --build-number=8 --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
+          flutter build ipa \
+            --release \
+            --build-name=1.0.4 \
+            --build-number=10 \
+            --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
     artifacts:
       - movie_picker/build/ios/ipa/*.ipa
       - movie_picker/build/ios/archive/*.xcarchive
       - movie_picker/ios/Flutter/*.xcconfig
     publishing:
       app_store_connect:
-        api_key: $APP_STORE_CONNECT_API_KEY
-        key_id: $APP_STORE_CONNECT_KEY_ID
+        api_key: $APP_STORE_CONNECT_PRIVATE_KEY
+        key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
-

@@ -46,3 +46,5 @@ app.*.map.json
 
 # Environment variables (API keys, secrets)
 .env
+# App Store Connect private keys
+AuthKey_*.p8
