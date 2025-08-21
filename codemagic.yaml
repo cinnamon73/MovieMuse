@@ -31,10 +31,14 @@ workflows:
         script: |
           cd movie_picker/ios
           pod install --repo-update
-      - name: Build and sign IPA (Flutter)
+      - name: Build IPA
         script: |
           cd movie_picker
-          flutter build ipa --release --export-options-plist=/Users/builder/export_options.plist --build-name=1.0.4 --build-number=10 --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
+          flutter build ipa \
+            --release \
+            --build-name=1.0.4 \
+            --build-number=10 \
+            --dart-define=SEMANTIC_SERVER_URL=$SEMANTIC_SERVER_URL
     artifacts:
       - movie_picker/build/ios/ipa/*.ipa
       - movie_picker/build/ios/archive/*.xcarchive
@@ -45,4 +49,3 @@ workflows:
         key_id: $APP_STORE_CONNECT_KEY_IDENTIFIER
         issuer_id: $APP_STORE_CONNECT_ISSUER_ID
         submit_to_testflight: true
-
