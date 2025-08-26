@@ -53,6 +53,8 @@ class MovieService {
 
   // Keyword cache to avoid repeated API calls
   final Map<int, List<String>> _keywordCache = {};
+  // External IDs cache (e.g., IMDb)
+  final Map<int, Map<String, String>> _externalIdsCache = {};
 
   // Current filter state for API calls
   String? _selectedLanguage;
@@ -1577,6 +1579,34 @@ class MovieService {
     // Return empty list if fetch fails
     _keywordCache[movieId] = [];
     return [];
+    });
+  }
+
+  // Fetch external IDs (IMDb, etc.) for a movie
+  Future<Map<String, String>> fetchExternalIds(int movieId) async {
+    final requestKey = 'fetch_external_ids_$movieId';
+    return await _requestManager.deduplicate(requestKey, () async {
+      if (_externalIdsCache.containsKey(movieId)) {
+        return _externalIdsCache[movieId]!;
+      }
+      try {
+        final response = await _dio.get(
+          '$_baseUrl/movie/$movieId/external_ids',
+          queryParameters: {'api_key': _apiKey},
+        );
+        if (response.statusCode == 200) {
+          final data = response.data as Map<String, dynamic>;
+          final imdbId = (data['imdb_id'] as String?)?.trim();
+          final map = <String, String>{
+            if (imdbId != null && imdbId.isNotEmpty) 'imdb_id': imdbId,
+          };
+          _externalIdsCache[movieId] = map;
+          return map;
+        }
+      } catch (e) {
+      }
+      _externalIdsCache[movieId] = {};
+      return {};
     });
   }
 

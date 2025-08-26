@@ -9,12 +9,17 @@ class AffiliateLinkService {
   static String buildAmazonSearchUrl({
     required String title,
     String? year,
+    String? imdbId,
     String countryCode = 'US',
   }) {
     final domain = _amazonDomainForCountry(countryCode);
     final tag = _amazonTagForCountry(countryCode);
 
-    final query = [title, if (year != null && year.trim().isNotEmpty) year]
+    final query = [
+      title,
+      if (year != null && year.trim().isNotEmpty) year,
+      if (imdbId != null && imdbId.trim().isNotEmpty) imdbId,
+    ]
         .where((v) => v != null && v!.trim().isNotEmpty)
         .map((v) => v!.trim())
         .join(' ');

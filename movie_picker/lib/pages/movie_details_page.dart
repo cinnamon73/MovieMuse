@@ -656,9 +656,16 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                             // If Amazon is selected/best platform, open affiliate search link
                             if (platform == 'amazon_prime') {
                               final countryCode = await _inferCountryCode();
+                              // Try to enrich search with IMDb ID for better precision
+                              String? imdbId;
+                              try {
+                                final external = await MovieService().fetchExternalIds(widget.movie.id);
+                                imdbId = external['imdb_id'];
+                              } catch (_) {}
                               final searchUrl = AffiliateLinkService.buildAmazonSearchUrl(
                                 title: widget.movie.title,
                                 year: widget.movie.releaseDate,
+                                imdbId: imdbId,
                                 countryCode: countryCode,
                               );
                               final uri = Uri.parse(searchUrl);
