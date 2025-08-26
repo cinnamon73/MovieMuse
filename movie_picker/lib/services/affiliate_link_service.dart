@@ -10,7 +10,7 @@ class AffiliateLinkService {
     required String title,
     String? year,
     String? imdbId,
-    String countryCode = 'US',
+    String countryCode = 'GB',
   }) {
     final domain = _amazonDomainForCountry(countryCode);
     final tag = _amazonTagForCountry(countryCode);
@@ -38,7 +38,7 @@ class AffiliateLinkService {
   /// if you have a reliable ASIN for the title in the target marketplace.
   static String buildAmazonDetailUrlFromAsin({
     required String asin,
-    String countryCode = 'US',
+    String countryCode = 'GB',
   }) {
     final domain = _amazonDomainForCountry(countryCode);
     final tag = _amazonTagForCountry(countryCode);
@@ -74,7 +74,7 @@ class AffiliateLinkService {
     final isAmazon = _isAmazonDomain(parsed.host);
     if (!isAmazon) return url;
 
-    final inferredCountry = countryCode ?? _inferCountryFromAmazonHost(parsed.host) ?? 'US';
+    final inferredCountry = countryCode ?? _inferCountryFromAmazonHost(parsed.host) ?? 'GB';
     final tag = _amazonTagForCountry(inferredCountry);
     if (tag == null || tag.isEmpty) return url; // No tag configured; return as-is
 

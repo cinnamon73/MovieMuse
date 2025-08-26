@@ -10,6 +10,7 @@ import '../widgets/enhanced_cast_crew_section.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/affiliate_link_service.dart';
 import '../services/server_streaming_service.dart';
+import '../services/firebase_platform_service.dart';
 import '../widgets/friend_selection_modal.dart';
 import '../utils/language_utils.dart';
 import '../widgets/movie_reviews_section.dart';
@@ -662,6 +663,21 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                               try {
                                 final external = await MovieService().fetchExternalIds(widget.movie.id);
                                 imdbId = external['imdb_id'];
+                              } catch (_) {}
+                              // 0) Firestore overrides (manual deep links without PA-API)
+                              try {
+                                final overrideUrl = await FirebasePlatformService().getDirectProviderUrl(
+                                  movieId: widget.movie.id,
+                                  provider: 'amazon_prime',
+                                  countryCode: countryCode,
+                                );
+                                if (overrideUrl != null && overrideUrl.isNotEmpty) {
+                                  final uri = Uri.parse(AffiliateLinkService.ensureAmazonAffiliateTag(overrideUrl, countryCode: countryCode));
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    return;
+                                  }
+                                }
                               } catch (_) {}
                               // First, try direct detail link via server PA-API
                               try {

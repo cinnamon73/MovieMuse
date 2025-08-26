@@ -77,6 +77,29 @@ class FirebasePlatformService {
     }
   }
 
+  // Affiliate override lookup: allow pasting provider-specific direct URLs
+  // Collection: affiliate_overrides
+  // Doc ID: movie_<movieId>
+  // Field name pattern: <provider>_<countryCode>, e.g., amazon_prime_gb
+  Future<String?> getDirectProviderUrl({
+    required int movieId,
+    required String provider,
+    String countryCode = 'GB',
+  }) async {
+    try {
+      final docId = 'movie_${movieId.toString()}';
+      final doc = await _firestore.collection('affiliate_overrides').doc(docId).get();
+      if (!doc.exists) return null;
+      final data = doc.data() as Map<String, dynamic>?;
+      if (data == null) return null;
+      final key = '${provider.toLowerCase()}_${countryCode.toLowerCase()}';
+      final url = data[key] as String?;
+      return url;
+    } catch (e) {
+      return null;
+    }
+  }
+
   // Convert Firebase movie data to Movie model
   Movie? _convertFirebaseMovieToMovie(Map<String, dynamic> movieData) {
     try {
