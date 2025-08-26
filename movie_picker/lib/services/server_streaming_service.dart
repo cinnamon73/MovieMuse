@@ -52,6 +52,30 @@ class ServerStreamingService {
     _dio.options.sendTimeout = const Duration(seconds: 10);
   }
 
+  // Get direct Amazon link via server PA-API endpoint; returns null if unavailable
+  Future<String?> getAmazonDirectLink({
+    required String title,
+    String? year,
+    String? imdbId,
+    String country = 'US',
+  }) async {
+    try {
+      final resp = await _dio.post('$_serverBaseUrl/affiliate/amazon-link', data: {
+        'title': title,
+        if (year != null) 'year': year,
+        if (imdbId != null) 'imdb_id': imdbId,
+        'country': country,
+      });
+      if (resp.statusCode == 200 && resp.data['success'] == true) {
+        final url = resp.data['url'] as String?;
+        return url;
+      }
+    } catch (e) {
+      debugPrint('❌ getAmazonDirectLink failed: $e');
+    }
+    return null;
+  }
+
   // Check if cache entry is still valid
   bool _isCacheValid(String key, int ttlSeconds) {
     final timestamp = _cacheTimestamps[key];

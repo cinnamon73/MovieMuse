@@ -4,6 +4,7 @@ const axios = require('axios');
 const NodeCache = require('node-cache');
 require('dotenv').config();
 const OpenAI = require('openai');
+const AmazonPaapi = require('amazon-paapi');
 
 // Initialize OpenAI client if key present
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY || process.env.OPENAI_API_TOKEN;
@@ -652,6 +653,95 @@ app.get('/platforms', (req, res) => {
     platforms,
     count: platforms.length
   });
+});
+
+// ------- Affiliate: Amazon PA-API direct link endpoint -------
+// Returns a marketplace-specific DetailPageURL with the PartnerTag applied when available
+app.post('/affiliate/amazon-link', async (req, res) => {
+  try {
+    const {
+      title,
+      year,
+      imdb_id: imdbId,
+      country = process.env.AMZN_MARKETPLACE || 'US'
+    } = req.body || {};
+
+    if (!title || typeof title !== 'string') {
+      return res.status(400).json({ success: false, error: 'title is required' });
+    }
+
+    const AccessKey = process.env.AMZN_ACCESS_KEY;
+    const SecretKey = process.env.AMZN_SECRET_KEY;
+    const PartnerTag = process.env.AMZN_PARTNER_TAG;
+    const PartnerType = process.env.AMZN_PARTNER_TYPE || 'Associates';
+
+    if (!AccessKey || !SecretKey || !PartnerTag) {
+      return res.status(503).json({ success: false, error: 'PA-API not configured' });
+    }
+
+    const MARKETPLACES = {
+      US: { host: 'webservices.amazon.com', region: 'us-east-1', marketplace: 'www.amazon.com' },
+      GB: { host: 'webservices.amazon.co.uk', region: 'eu-west-1', marketplace: 'www.amazon.co.uk' },
+      UK: { host: 'webservices.amazon.co.uk', region: 'eu-west-1', marketplace: 'www.amazon.co.uk' },
+      DE: { host: 'webservices.amazon.de', region: 'eu-west-1', marketplace: 'www.amazon.de' },
+      FR: { host: 'webservices.amazon.fr', region: 'eu-west-1', marketplace: 'www.amazon.fr' },
+      IT: { host: 'webservices.amazon.it', region: 'eu-west-1', marketplace: 'www.amazon.it' },
+      ES: { host: 'webservices.amazon.es', region: 'eu-west-1', marketplace: 'www.amazon.es' },
+      CA: { host: 'webservices.amazon.ca', region: 'us-east-1', marketplace: 'www.amazon.ca' },
+      AU: { host: 'webservices.amazon.com.au', region: 'us-west-2', marketplace: 'www.amazon.com.au' },
+      JP: { host: 'webservices.amazon.co.jp', region: 'us-west-2', marketplace: 'www.amazon.co.jp' },
+      IN: { host: 'webservices.amazon.in', region: 'eu-west-1', marketplace: 'www.amazon.in' },
+      BR: { host: 'webservices.amazon.com.br', region: 'sa-east-1', marketplace: 'www.amazon.com.br' },
+      MX: { host: 'webservices.amazon.com.mx', region: 'us-east-1', marketplace: 'www.amazon.com.mx' },
+      NL: { host: 'webservices.amazon.nl', region: 'eu-west-1', marketplace: 'www.amazon.nl' },
+      SE: { host: 'webservices.amazon.se', region: 'eu-west-1', marketplace: 'www.amazon.se' },
+      PL: { host: 'webservices.amazon.pl', region: 'eu-west-1', marketplace: 'www.amazon.pl' },
+    };
+
+    const cc = (country || 'US').toUpperCase();
+    const mp = MARKETPLACES[cc] || MARKETPLACES.US;
+
+    const commonParameters = {
+      AccessKey,
+      SecretKey,
+      PartnerTag,
+      PartnerType,
+      Marketplace: mp.marketplace,
+      Host: mp.host,
+      Region: mp.region,
+    };
+
+    const keywords = [title, year, imdbId].filter(Boolean).join(' ');
+    const requestParameters = {
+      Keywords: keywords,
+      SearchIndex: 'Video',
+      ItemCount: 1,
+      Resources: [
+        'ItemInfo.Title',
+        'DetailPageURL',
+        'Offers.Listings.Price',
+      ],
+    };
+
+    let detailUrl = null;
+    try {
+      const data = await AmazonPaapi.SearchItems(commonParameters, requestParameters);
+      const items = data?.SearchResult?.Items || [];
+      if (items.length > 0) {
+        detailUrl = items[0]?.DetailPageURL || null;
+      }
+    } catch (e) {
+      console.error('❌ PA-API SearchItems failed:', e.message);
+    }
+
+    if (!detailUrl) {
+      return res.json({ success: false, fallback: true });
+    }
+    return res.json({ success: true, url: detailUrl });
+  } catch (err) {
+    console.error('❌ /affiliate/amazon-link error:', err.message);
+    return res.status(500).json({ success: false, error: 'amazon_link_failed', message: err.message });
+  }
 });
 
 // Health check endpoint

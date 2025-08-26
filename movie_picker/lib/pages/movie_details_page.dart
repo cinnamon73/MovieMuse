@@ -9,6 +9,7 @@ import '../services/streaming_service.dart';
 import '../widgets/enhanced_cast_crew_section.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/affiliate_link_service.dart';
+import '../services/server_streaming_service.dart';
 import '../widgets/friend_selection_modal.dart';
 import '../utils/language_utils.dart';
 import '../widgets/movie_reviews_section.dart';
@@ -661,6 +662,22 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                               try {
                                 final external = await MovieService().fetchExternalIds(widget.movie.id);
                                 imdbId = external['imdb_id'];
+                              } catch (_) {}
+                              // First, try direct detail link via server PA-API
+                              try {
+                                final directUrl = await ServerStreamingService().getAmazonDirectLink(
+                                  title: widget.movie.title,
+                                  year: widget.movie.releaseDate,
+                                  imdbId: imdbId,
+                                  country: countryCode,
+                                );
+                                if (directUrl != null && directUrl.isNotEmpty) {
+                                  final uri = Uri.parse(AffiliateLinkService.ensureAmazonAffiliateTag(directUrl, countryCode: countryCode));
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    return;
+                                  }
+                                }
                               } catch (_) {}
                               final searchUrl = AffiliateLinkService.buildAmazonSearchUrl(
                                 title: widget.movie.title,
