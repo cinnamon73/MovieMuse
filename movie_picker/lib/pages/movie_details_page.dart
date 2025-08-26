@@ -715,9 +715,9 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                     color: Color(gradientColors[0]).withOpacity(0.2),
                                     borderRadius: BorderRadius.circular(12),
                                   ),
-                                  child: const Text(
-                                    'Coming Soon',
-                                    style: TextStyle(
+                                  child: Text(
+                                    platform == 'amazon_prime' ? 'Watch Now' : 'Coming Soon',
+                                    style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,
                                       fontSize: 10,
