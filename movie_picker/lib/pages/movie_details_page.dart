@@ -7,6 +7,8 @@ import '../themes/app_colors.dart';
 import '../services/movie_service.dart';
 import '../services/streaming_service.dart';
 import '../widgets/enhanced_cast_crew_section.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../services/affiliate_link_service.dart';
 import '../widgets/friend_selection_modal.dart';
 import '../utils/language_utils.dart';
 import '../widgets/movie_reviews_section.dart';
@@ -94,6 +96,20 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
       _loadingPhotos = false;
       _currentPhotoIndex = 0;
     });
+  }
+
+  // Try to infer a sensible country code for affiliate links.
+  // We use the first region found from TMDB providers if available; otherwise fall back to device locale.
+  Future<String> _inferCountryCode() async {
+    try {
+      final providers = await StreamingService().fetchWatchProviders(widget.movie.id);
+      final region = providers != null ? (providers['region'] as String?) : null;
+      if (region != null && region.isNotEmpty) return region;
+    } catch (_) {}
+    final locale = Localizations.maybeLocaleOf(context);
+    final country = locale?.countryCode;
+    if (country != null && country.isNotEmpty) return country;
+    return 'US';
   }
 
   Future<void> _maybeComputeMatch() async {
@@ -636,7 +652,23 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                       child: Material(
                         color: Colors.transparent,
                         child: InkWell(
-                          onTap: () => _showComingSoonDialog(platformInfo['name']),
+                          onTap: () async {
+                            // If Amazon is selected/best platform, open affiliate search link
+                            if (platform == 'amazon_prime') {
+                              final countryCode = await _inferCountryCode();
+                              final searchUrl = AffiliateLinkService.buildAmazonSearchUrl(
+                                title: widget.movie.title,
+                                year: widget.movie.releaseDate,
+                                countryCode: countryCode,
+                              );
+                              final uri = Uri.parse(searchUrl);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                return;
+                              }
+                            }
+                            _showComingSoonDialog(platformInfo['name']);
+                          },
                           borderRadius: BorderRadius.circular(8),
                           child: Container(
                             padding: const EdgeInsets.all(16),
