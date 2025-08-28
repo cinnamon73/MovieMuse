@@ -707,6 +707,19 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                 return;
                               }
                             }
+                            // Non-Amazon providers: open TMDB watch page
+                            try {
+                              final region = await _inferCountryCode();
+                              final url = StreamingService().buildTmdbWatchUrl(
+                                movieId: widget.movie.id,
+                                region: region,
+                              );
+                              final uri = Uri.parse(url);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                return;
+                              }
+                            } catch (_) {}
                             _showComingSoonDialog(platformInfo['name']);
                           },
                           borderRadius: BorderRadius.circular(8),

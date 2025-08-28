@@ -19,6 +19,13 @@ class StreamingService {
     _dio.options.queryParameters = {'api_key': _apiKey};
   }
 
+  // Build a TMDB watch link for a movie (non-affiliate). Opens TMDB's "Watch" page.
+  // Example: https://www.themoviedb.org/movie/<id>/watch?region=GB
+  String buildTmdbWatchUrl({required int movieId, String region = 'GB'}) {
+    final regionCode = region.isNotEmpty ? region : 'GB';
+    return 'https://www.themoviedb.org/movie/$movieId/watch?region=$regionCode';
+  }
+
   // Fetch watch providers for a movie from TMDB
   Future<Map<String, dynamic>?> fetchWatchProviders(int movieId) async {
     // Check cache first
