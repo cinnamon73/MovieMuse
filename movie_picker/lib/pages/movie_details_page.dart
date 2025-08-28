@@ -707,14 +707,21 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                 return;
                               }
                             }
-                            // Non-Amazon providers: open TMDB watch page
+                            // Non-Amazon providers: try direct provider link via server (JustWatch), else TMDB watch page
                             try {
                               final region = await _inferCountryCode();
-                              final url = StreamingService().buildTmdbWatchUrl(
+                              // Attempt direct link
+                              final direct = await ServerStreamingService().getProviderDirectLink(
+                                title: widget.movie.title,
+                                year: widget.movie.releaseDate,
+                                provider: platform, // our platform key (e.g., netflix, disney_plus)
+                                country: region,
+                              );
+                              final urlToOpen = direct ?? StreamingService().buildTmdbWatchUrl(
                                 movieId: widget.movie.id,
                                 region: region,
                               );
-                              final uri = Uri.parse(url);
+                              final uri = Uri.parse(urlToOpen);
                               if (await canLaunchUrl(uri)) {
                                 await launchUrl(uri, mode: LaunchMode.externalApplication);
                                 return;

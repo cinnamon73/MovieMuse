@@ -759,6 +759,91 @@ app.get('/health', (req, res) => {
   });
 });
 
+// ------- Direct provider link via JustWatch (unofficial) -------
+// Attempts to return a direct streaming URL on the provider's site for a movie
+app.post('/link/provider-direct', async (req, res) => {
+  try {
+    const { title, year, country = 'GB', provider } = req.body || {};
+    if (!title) return res.status(400).json({ success: false, error: 'title is required' });
+
+    // Build locale like en_GB, en_US; default English locale
+    const cc = (country || 'GB').toUpperCase();
+    const locale = `en_${cc}`;
+
+    // Query JustWatch popular endpoint
+    const url = `https://apis.justwatch.com/content/titles/${locale}/popular`;
+    const body = {
+      page_size: 5,
+      page: 1,
+      query: title,
+      content_types: ['movie']
+    };
+
+    const jwResp = await axios.post(url, body, { timeout: 10000 });
+    const items = Array.isArray(jwResp.data?.items) ? jwResp.data.items : [];
+    if (items.length === 0) return res.json({ success: false, reason: 'no_results' });
+
+    // Choose best match by year if provided
+    let best = null;
+    const targetYear = year ? parseInt(String(year).slice(0, 4), 10) : null;
+    if (!Number.isNaN(targetYear) && targetYear) {
+      best = items.find(i => i?.original_release_year === targetYear) || items[0];
+    } else {
+      best = items[0];
+    }
+
+    const offers = Array.isArray(best?.offers) ? best.offers : [];
+    if (offers.length === 0) return res.json({ success: false, reason: 'no_offers' });
+
+    // Domain filter map by provider key
+    const providerDomains = {
+      netflix: ['netflix.com'],
+      disney_plus: ['disneyplus.com'],
+      hbo_max: ['max.com', 'hbomax.com'],
+      hulu: ['hulu.com'],
+      apple_tv: ['tv.apple.com'],
+      paramount_plus: ['paramountplus.com'],
+      peacock: ['peacocktv.com'],
+      crunchyroll: ['crunchyroll.com'],
+    };
+
+    const domains = provider ? (providerDomains[provider] || []) : [];
+
+    // Prefer flatrate > ads > free > rent > buy
+    const monetizationOrder = ['flatrate', 'ads', 'free', 'rent', 'buy'];
+    offers.sort((a, b) => {
+      const ai = monetizationOrder.indexOf(a.monetization_type || '');
+      const bi = monetizationOrder.indexOf(b.monetization_type || '');
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+    });
+
+    function urlMatches(urlStr) {
+      if (!urlStr || domains.length === 0) return false;
+      try {
+        const h = new URL(urlStr).host;
+        return domains.some(d => h.endsWith(d));
+      } catch (_) {
+        return false;
+      }
+    }
+
+    let directUrl = null;
+    for (const off of offers) {
+      const u = off?.urls?.standard_web || off?.urls?.deeplink_web;
+      if (u && (domains.length === 0 || urlMatches(u))) {
+        directUrl = u;
+        break;
+      }
+    }
+
+    if (!directUrl) return res.json({ success: false, reason: 'no_matching_provider' });
+    return res.json({ success: true, url: directUrl });
+  } catch (err) {
+    console.error('❌ provider-direct error:', err.message);
+    return res.status(500).json({ success: false, error: 'provider_direct_failed', message: err.message });
+  }
+});
+
 // Clear cache endpoint (for development)
 app.delete('/cache', (req, res) => {
   if (process.env.NODE_ENV === 'production') {

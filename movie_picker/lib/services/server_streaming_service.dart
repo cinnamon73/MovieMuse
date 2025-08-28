@@ -76,6 +76,29 @@ class ServerStreamingService {
     return null;
   }
 
+  // Get direct provider link via server JustWatch lookup; returns null on failure
+  Future<String?> getProviderDirectLink({
+    required String title,
+    String? year,
+    required String provider,
+    String country = 'GB',
+  }) async {
+    try {
+      final resp = await _dio.post('$_serverBaseUrl/link/provider-direct', data: {
+        'title': title,
+        if (year != null) 'year': year,
+        'provider': provider,
+        'country': country,
+      });
+      if (resp.statusCode == 200 && resp.data['success'] == true) {
+        return resp.data['url'] as String?;
+      }
+    } catch (e) {
+      debugPrint('❌ getProviderDirectLink failed: $e');
+    }
+    return null;
+  }
+
   // Check if cache entry is still valid
   bool _isCacheValid(String key, int ttlSeconds) {
     final timestamp = _cacheTimestamps[key];
