@@ -1610,6 +1610,35 @@ class MovieService {
     });
   }
 
+  // Fetch trailer URL (YouTube) from TMDB videos for a movie
+  Future<String?> fetchTrailerUrl(int movieId) async {
+    final requestKey = 'fetch_trailer_$movieId';
+    return await _requestManager.deduplicate(requestKey, () async {
+      try {
+        final response = await _dio.get(
+          '$_baseUrl/movie/$movieId/videos',
+          queryParameters: {'api_key': _apiKey},
+        );
+        if (response.statusCode == 200) {
+          final results = response.data['results'] as List? ?? [];
+          // Prefer official trailer in English, then any trailer
+          final prioritized = [
+            ...results.where((v) => (v['type'] == 'Trailer') && (v['official'] == true) && (v['site'] == 'YouTube') && (v['iso_639_1'] == 'en')),
+            ...results.where((v) => (v['type'] == 'Trailer') && (v['site'] == 'YouTube')),
+          ];
+          if (prioritized.isNotEmpty) {
+            final key = prioritized.first['key'];
+            if (key is String && key.isNotEmpty) {
+              return 'https://www.youtube.com/watch?v=' + key;
+            }
+          }
+        }
+      } catch (e) {
+      }
+      return null;
+    });
+  }
+
   // Fetch keywords for multiple movies in batch
   Future<void> fetchKeywordsForMovies(List<Movie> movies) async {
     final futures = <Future<void>>[];
@@ -2603,8 +2632,19 @@ class MovieService {
   }
 
   // Add more movies to cache without clearing existing ones
-  void _addMoreMoviesToCache(List<Movie> newMovies) {
+  Future<void> _addMoreMoviesToCache(List<Movie> newMovies) async {
+    // Build blacklist from current user data if available
+    final excluded = <int>{};
+    try {
+      final user = await _userService?.getCurrentUserData();
+      if (user != null) {
+        excluded.addAll(user.watchedMovieIds);
+        excluded.addAll(user.skippedMovieIds);
+        excluded.addAll(user.bookmarkedMovieIds);
+      }
+    } catch (_) {}
     for (final movie in newMovies) {
+      if (excluded.contains(movie.id)) continue;
       if (!_cachedMovieIds.contains(movie.id)) {
         _movieCache.add(movie);
         _cachedMovieIds.add(movie.id);
@@ -2782,7 +2822,7 @@ class MovieService {
   }
 
   // Stack population strategy
-  void populateMovieStackFromPlatform() {
+  Future<void> populateMovieStackFromPlatform() async {
     // Clear existing movie cache
     _movieCache.clear();
     _cachedMovieIds.clear();
@@ -2791,15 +2831,27 @@ class MovieService {
     final shuffledPlatformMovies = List<Movie>.from(_platformMovieStack);
     shuffledPlatformMovies.shuffle();
     
-    // Add to main movie cache
+    // Build blacklist from current user data if available
+    final excluded = <int>{};
+    try {
+      final user = await _userService?.getCurrentUserData();
+      if (user != null) {
+        excluded.addAll(user.watchedMovieIds);
+        excluded.addAll(user.skippedMovieIds);
+        excluded.addAll(user.bookmarkedMovieIds);
+      }
+    } catch (_) {}
+    
+    // Add to main movie cache, skipping excluded
     for (final movie in shuffledPlatformMovies) {
+      if (excluded.contains(movie.id)) continue;
       if (!_cachedMovieIds.contains(movie.id)) {
         _movieCache.add(movie);
         _cachedMovieIds.add(movie.id);
       }
     }
     
-    debugPrint('✅ Movie stack populated with ${_movieCache.length} ${_selectedPlatform} movies');
+    debugPrint('✅ Movie stack populated with ${_movieCache.length} ${_selectedPlatform} movies (excluded: ${excluded.length})');
   }
 
   // Error handling for platform fetching
