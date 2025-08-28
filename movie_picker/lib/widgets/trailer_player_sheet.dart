@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 
 class TrailerPlayerSheet extends StatefulWidget {
   final String youtubeUrl;
@@ -10,28 +11,32 @@ class TrailerPlayerSheet extends StatefulWidget {
 }
 
 class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
-  late YoutubePlayerController _controller;
+  YoutubePlayerController? _controller;
 
   @override
   void initState() {
     super.initState();
-    final videoId = YoutubePlayerController.convertUrlToId(widget.youtubeUrl);
-    _controller = YoutubePlayerController(
-      params: const YoutubePlayerParams(
-        showFullscreenButton: true,
-        strictRelatedVideos: true,
-        autoPlay: true,
-        playsInline: true,
-      ),
-    );
-    if (videoId != null) {
-      _controller.loadVideoById(videoId: videoId);
+    // Only initialize the WebView/YouTube controller on mobile platforms
+    if (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS) {
+      final videoId = YoutubePlayerController.convertUrlToId(widget.youtubeUrl);
+      final controller = YoutubePlayerController(
+        params: const YoutubePlayerParams(
+          showFullscreenButton: true,
+          strictRelatedVideos: true,
+          playsInline: true,
+        ),
+      );
+      _controller = controller;
+      if (videoId != null) {
+        controller.loadVideoById(videoId: videoId);
+        controller.playVideo();
+      }
     }
   }
 
   @override
   void dispose() {
-    _controller.close();
+    _controller?.close();
     super.dispose();
   }
 
@@ -53,10 +58,21 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
                 )
               ],
             ),
-            AspectRatio(
-              aspectRatio: 16 / 9,
-              child: YoutubePlayer(controller: _controller),
-            ),
+            if (_controller != null)
+              AspectRatio(
+                aspectRatio: 16 / 9,
+                child: YoutubePlayer(controller: _controller!),
+              )
+            else
+              Container(
+                height: MediaQuery.of(context).size.width * 9 / 16,
+                alignment: Alignment.center,
+                child: const Text(
+                  'Trailer playback is available on mobile devices.',
+                  style: TextStyle(color: Colors.white70),
+                  textAlign: TextAlign.center,
+                ),
+              ),
           ],
         ),
       ),
