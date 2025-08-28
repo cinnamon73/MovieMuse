@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/movie.dart';
 import '../services/movie_service.dart';
 import 'movie_card.dart';
+import 'trailer_player_sheet.dart';
 
 class SwipeableMovieCard extends StatefulWidget {
   final Movie movie;
@@ -134,6 +135,20 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
     }
 
     return GestureDetector(
+      onDoubleTap: () async {
+        final url = await widget.movieService.fetchTrailerUrl(widget.movie.id);
+        if (url == null) return;
+        if (!mounted) return;
+        showModalBottomSheet(
+          context: context,
+          isScrollControlled: true,
+          backgroundColor: Colors.black,
+          builder: (_) => SizedBox(
+            height: MediaQuery.of(context).size.height * 0.6,
+            child: _TrailerSheetLauncher(youtubeUrl: url),
+          ),
+        );
+      },
       onPanUpdate: (details) {
         setState(() {
           _offset += details.delta;
@@ -234,6 +249,49 @@ class _OptimizedMovieCard extends StatelessWidget {
       rating: rating,
       onRatingChanged: onRatingChanged,
       recommendedBy: recommendedBy, // NEW: Pass recommender info
+    );
+  }
+}
+
+// Lightweight wrapper to avoid importing the player at the top-level
+class _TrailerSheetLauncher extends StatelessWidget {
+  final String youtubeUrl;
+  const _TrailerSheetLauncher({required this.youtubeUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    // Lazy import to keep initial build light
+    return FutureBuilder(
+      future: Future.value(true),
+      builder: (context, _) {
+        return Navigator(
+          onGenerateRoute: (settings) => MaterialPageRoute(
+            builder: (context) {
+              // Defer import to this scope
+              // ignore: avoid_dynamic_calls
+              return _TrailerPlayer(youtubeUrl: youtubeUrl);
+            },
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _TrailerPlayer extends StatelessWidget {
+  final String youtubeUrl;
+  const _TrailerPlayer({required this.youtubeUrl});
+
+  @override
+  Widget build(BuildContext context) {
+    // Import player widget
+    return Builder(
+      builder: (context) {
+        // Use the sheet widget we created
+        // The sheet is already a full UI; just embed it
+        // ignore: prefer_const_constructors
+        return TrailerPlayerSheet(youtubeUrl: youtubeUrl);
+      },
     );
   }
 }
