@@ -10,6 +10,7 @@ import '../widgets/enhanced_cast_crew_section.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/affiliate_link_service.dart';
 import '../services/server_streaming_service.dart';
+import '../widgets/trailer_player_sheet.dart';
 import '../services/firebase_platform_service.dart';
 import '../widgets/friend_selection_modal.dart';
 import '../utils/language_utils.dart';
@@ -513,6 +514,56 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                             padding: EdgeInsets.symmetric(
                               vertical: isSmallScreen ? 8 : 10, 
                               horizontal: isSmallScreen ? 4 : 6
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            elevation: 2,
+                          ),
+                        ),
+                      ),
+                    ),
+                    // Trailer Button (in-app playback only)
+                    Expanded(
+                      child: Container(
+                        margin: const EdgeInsets.symmetric(horizontal: 2),
+                        child: ElevatedButton.icon(
+                          onPressed: () async {
+                            final trailerUrl = await MovieService().fetchTrailerUrl(widget.movie.id);
+                            if (!mounted) return;
+                            if (trailerUrl == null) {
+                              _showComingSoonDialog('Trailer');
+                              return;
+                            }
+                            showModalBottomSheet(
+                              context: context,
+                              isScrollControlled: true,
+                              backgroundColor: Colors.black,
+                              builder: (_) => SizedBox(
+                                height: MediaQuery.of(context).size.height * 0.6,
+                                child: TrailerPlayerSheet(youtubeUrl: trailerUrl),
+                              ),
+                            );
+                          },
+                          icon: Icon(
+                            Icons.play_circle_fill,
+                            color: Colors.white,
+                            size: isSmallScreen ? 16 : 18,
+                          ),
+                          label: Text(
+                            'Trailer',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: isSmallScreen ? 10 : 11,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.blueGrey[700],
+                            foregroundColor: Colors.white,
+                            padding: EdgeInsets.symmetric(
+                              vertical: isSmallScreen ? 8 : 10,
+                              horizontal: isSmallScreen ? 4 : 6,
                             ),
                             shape: RoundedRectangleBorder(
                               borderRadius: BorderRadius.circular(10),
