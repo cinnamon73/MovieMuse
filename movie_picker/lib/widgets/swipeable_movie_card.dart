@@ -45,6 +45,7 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
   late AnimationController _animationController;
   late Animation<Offset> _offsetAnimation;
   late Animation<double> _angleAnimation;
+  bool? _hasTrailer; // null = unknown, true/false = determined
 
   @override
   void initState() {
@@ -62,12 +63,24 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
     _angleAnimation = Tween<double>(begin: 0.0, end: 0.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+    _prefetchTrailerAvailability();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant SwipeableMovieCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.movie.id != widget.movie.id) {
+      _hasTrailer = null;
+      _inlineTrailerUrl = null;
+      _showInlineTrailer = false;
+      _prefetchTrailerAvailability();
+    }
   }
 
   void _animateCardOffScreen(Offset targetOffset, VoidCallback onComplete) {
@@ -121,6 +134,21 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
   String? _inlineTrailerUrl;
   bool _showInlineTrailer = false;
 
+  Future<void> _prefetchTrailerAvailability() async {
+    try {
+      final url = await widget.movieService.fetchTrailerUrl(widget.movie.id);
+      if (!mounted) return;
+      setState(() {
+        _hasTrailer = url != null;
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _hasTrailer = false;
+      });
+    }
+  }
+
   Future<void> _toggleInlineTrailer() async {
     if (_showInlineTrailer) {
       setState(() { _showInlineTrailer = false; });
@@ -148,11 +176,20 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
         rating: widget.rating,
         onRatingChanged: widget.onRatingChanged,
         recommendedBy: widget.recommendedBy,
+        hasTrailer: false,
       );
     }
 
     return GestureDetector(
       onDoubleTap: _toggleInlineTrailer,
+      onPanDown: (_) {
+        // Defensive: if user starts a swipe while trailer is visible, hide it immediately
+        if (_showInlineTrailer) {
+          setState(() {
+            _showInlineTrailer = false;
+          });
+        }
+      },
       onPanStart: (_) {
         // If a trailer is playing inline, hide it immediately to avoid overlay issues while swiping
         if (_showInlineTrailer) {
@@ -176,12 +213,28 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
         final shouldSwipeDown = _offset.dy > 80 || velocity.dy > 400; // Lowered from 100/600
 
         if (shouldSwipeRight) {
+          // Ensure any inline trailer is hidden before completing the swipe
+          if (_showInlineTrailer) {
+            setState(() { _showInlineTrailer = false; });
+          }
           _animateCardOffScreen(const Offset(400, 0), widget.onSwipeRight);
         } else if (shouldSwipeLeft) {
+          // Ensure any inline trailer is hidden before completing the swipe
+          if (_showInlineTrailer) {
+            setState(() { _showInlineTrailer = false; });
+          }
           _animateCardOffScreen(const Offset(-400, 0), widget.onSwipeLeft);
         } else if (shouldSwipeUp) {
+          // Ensure any inline trailer is hidden before completing the swipe
+          if (_showInlineTrailer) {
+            setState(() { _showInlineTrailer = false; });
+          }
           _animateCardOffScreen(const Offset(0, -400), widget.onSwipeUp);
         } else if (shouldSwipeDown) {
+          // Ensure any inline trailer is hidden before completing the swipe
+          if (_showInlineTrailer) {
+            setState(() { _showInlineTrailer = false; });
+          }
           _animateCardOffScreen(const Offset(0, 400), widget.onSwipeDown);
         } else {
           _resetCard();
@@ -216,6 +269,7 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
               recommendedBy: widget.recommendedBy,
               showTrailer: _showInlineTrailer,
               trailerUrl: _inlineTrailerUrl,
+              hasTrailer: _hasTrailer == true,
             ),
           );
         },
@@ -238,6 +292,7 @@ class _OptimizedMovieCard extends StatelessWidget {
   final String? recommendedBy; // NEW: Who recommended this movie
   final bool showTrailer;
   final String? trailerUrl;
+  final bool hasTrailer;
 
   const _OptimizedMovieCard({
     required this.movie,
@@ -252,6 +307,7 @@ class _OptimizedMovieCard extends StatelessWidget {
     this.recommendedBy, // NEW: Optional recommender name
     this.showTrailer = false,
     this.trailerUrl,
+    this.hasTrailer = false,
   });
 
   @override
@@ -268,6 +324,7 @@ class _OptimizedMovieCard extends StatelessWidget {
       onRatingChanged: onRatingChanged,
       recommendedBy: recommendedBy, // NEW: Pass recommender info
       inlineTrailerUrl: showTrailer ? trailerUrl : null,
+      hasTrailer: hasTrailer,
     );
   }
 }

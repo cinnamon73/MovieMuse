@@ -8,6 +8,7 @@ import '../utils/language_utils.dart';
 import '../widgets/friend_selection_modal.dart';
 import '../widgets/bookmark_badge.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
 
 class MovieCard extends StatelessWidget {
   final Movie movie;
@@ -21,6 +22,7 @@ class MovieCard extends StatelessWidget {
   final ValueChanged<double>? onRatingChanged;
   final String? recommendedBy; // NEW: Who recommended this movie
   final String? inlineTrailerUrl; // If set, show inline player over poster
+  final bool hasTrailer; // Controls visibility of fullscreen button
 
   const MovieCard({
     super.key,
@@ -35,6 +37,7 @@ class MovieCard extends StatelessWidget {
     this.onRatingChanged,
     this.recommendedBy, // NEW: Optional recommender name
     this.inlineTrailerUrl,
+    this.hasTrailer = false,
   });
 
   @override
@@ -232,34 +235,84 @@ class MovieCard extends StatelessWidget {
               ],
             ),
           ),
-          // Quality indicator badge
-          if (movieService != null && !movieService!.isHighQualityMovie(movie))
-            Positioned(
-              top: 16,
-              right: 16,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: _getQualityBadgeColor(),
-                  borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
-                ),
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(_getQualityBadgeIcon(), color: Colors.white, size: 12),
-                    const SizedBox(width: 4),
-                    Text(
-                      _getQualityBadgeText(),
-                      style: AppTypography.metadataText.copyWith(
-                        color: Colors.white,
-                        fontWeight: FontWeight.bold,
-                      ),
+          // Top-right controls: fullscreen button and optional quality badge
+          Positioned(
+            top: 16,
+            right: 16,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (hasTrailer) Material(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () async {
+                      if (movieService == null) return;
+                      final url = await movieService!.fetchTrailerUrl(movie.id);
+                      if (url == null) return;
+                      final videoId = YoutubePlayerController.convertUrlToId(url);
+                      final controller = YoutubePlayerController(
+                        params: const YoutubePlayerParams(
+                          showFullscreenButton: false,
+                          strictRelatedVideos: true,
+                          playsInline: true,
+                        ),
+                      );
+                      if (videoId != null) {
+                        controller.loadVideoById(videoId: videoId);
+                        controller.playVideo();
+                      }
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          fullscreenDialog: true,
+                          builder: (_) => Scaffold(
+                            backgroundColor: Colors.black,
+                            body: Center(
+                              child: AspectRatio(
+                                aspectRatio: 16/9,
+                                child: YoutubePlayer(controller: controller),
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                      try { controller.close(); } catch (_) {}
+                    },
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(Icons.fullscreen, color: Colors.white, size: 20),
                     ),
-                  ],
+                  ),
                 ),
-              ),
+                if (movieService != null && !movieService!.isHighQualityMovie(movie)) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                    decoration: BoxDecoration(
+                      color: _getQualityBadgeColor(),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(_getQualityBadgeIcon(), color: Colors.white, size: 12),
+                        const SizedBox(width: 4),
+                        Text(
+                          _getQualityBadgeText(),
+                          style: AppTypography.metadataText.copyWith(
+                            color: Colors.white,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ],
             ),
+          ),
           // Bookmark badge overlay
           if (isBookmarked)
             Positioned(
@@ -472,18 +525,21 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
   @override
   void initState() {
     super.initState();
-    final videoId = YoutubePlayerController.convertUrlToId(widget.youtubeUrl);
-    final controller = YoutubePlayerController(
-      params: const YoutubePlayerParams(
-        showFullscreenButton: true,
-        strictRelatedVideos: true,
-        playsInline: true,
-      ),
-    );
-    _controller = controller;
-    if (videoId != null) {
-      controller.loadVideoById(videoId: videoId);
-      controller.playVideo();
+    // Avoid embedding platform view inline on Android; use fullscreen instead
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      final videoId = YoutubePlayerController.convertUrlToId(widget.youtubeUrl);
+      final controller = YoutubePlayerController(
+        params: const YoutubePlayerParams(
+          showFullscreenButton: true,
+          strictRelatedVideos: true,
+          playsInline: true,
+        ),
+      );
+      _controller = controller;
+      if (videoId != null) {
+        controller.loadVideoById(videoId: videoId);
+        controller.playVideo();
+      }
     }
   }
 
@@ -495,14 +551,73 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
 
   @override
   Widget build(BuildContext context) {
+    final isAndroid = defaultTargetPlatform == TargetPlatform.android;
+    if (isAndroid) {
+      // Android: Show a lightweight overlay with play action to open fullscreen
+      return Stack(
+        children: [
+          AspectRatio(
+            aspectRatio: 2/3,
+            child: Container(color: Colors.black),
+          ),
+          Center(
+            child: Material(
+              color: Colors.black.withOpacity(0.4),
+              shape: const CircleBorder(),
+              child: InkWell(
+                customBorder: const CircleBorder(),
+                onTap: () async {
+                  final url = widget.youtubeUrl;
+                  await Navigator.of(context).push(
+                    MaterialPageRoute(
+                      fullscreenDialog: true,
+                      builder: (_) {
+                        final vid = YoutubePlayerController.convertUrlToId(url);
+                        final full = YoutubePlayerController(
+                          params: const YoutubePlayerParams(
+                            showFullscreenButton: false,
+                            strictRelatedVideos: true,
+                            playsInline: true,
+                          ),
+                        );
+                        if (vid != null) {
+                          full.loadVideoById(videoId: vid);
+                          full.playVideo();
+                        }
+                        return Scaffold(
+                          backgroundColor: Colors.black,
+                          body: Center(
+                            child: AspectRatio(
+                              aspectRatio: 16/9,
+                              child: YoutubePlayer(controller: full),
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+                  );
+                },
+                child: const Padding(
+                  padding: EdgeInsets.all(16.0),
+                  child: Icon(Icons.play_arrow, color: Colors.white, size: 40),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
     if (_controller == null) {
       return Container(color: Colors.black);
     }
     return Stack(
       children: [
-        AspectRatio(
-          aspectRatio: 2/3, // roughly poster aspect, player letterboxes internally
-          child: YoutubePlayer(controller: _controller!),
+        IgnorePointer(
+          ignoring: true, // Let parent gestures handle swipes; we provide our own overlay controls
+          child: AspectRatio(
+            aspectRatio: 2/3, // roughly poster aspect, player letterboxes internally
+            child: YoutubePlayer(controller: _controller!),
+          ),
         ),
         Positioned(
           top: 8,
