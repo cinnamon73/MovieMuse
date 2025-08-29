@@ -72,6 +72,10 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
   final PageController _photosController = PageController(viewportFraction: 0.9, initialPage: 5000);
   Future<String?>? _platformFuture;
   Future<List<String>>? _allPlatformsFuture;
+  // Prefetched links to avoid slow taps
+  String? _prefetchedAmazonUrl;
+  String? _prefetchedProviderUrl;
+  String? _prefetchedTrailerUrl;
 
   @override
   void initState() {
@@ -83,6 +87,73 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
     final streaming = StreamingService();
     _platformFuture = streaming.getStreamingPlatformForFilter(widget.movie.id, widget.selectedPlatform);
     _allPlatformsFuture = streaming.getAllAvailablePlatforms(widget.movie.id);
+    _prefetchLinks();
+  }
+
+  Future<void> _prefetchLinks() async {
+    try {
+      final region = await _inferCountryCode();
+      _prefetchedTrailerUrl = await MovieService().fetchTrailerUrl(widget.movie.id);
+
+      // Decide best platform first
+      final platform = await _platformFuture;
+      if (platform == 'amazon_prime') {
+        // Try override, PA-API, then search in parallel with timeouts
+        String? imdbId;
+        try {
+          final external = await MovieService().fetchExternalIds(widget.movie.id);
+          imdbId = external['imdb_id'];
+        } catch (_) {}
+
+        final overrideF = FirebasePlatformService().getDirectProviderUrl(
+          movieId: widget.movie.id,
+          provider: 'amazon_prime',
+          countryCode: region,
+        );
+        final directF = ServerStreamingService().getAmazonDirectLink(
+          title: widget.movie.title,
+          year: widget.movie.releaseDate,
+          imdbId: imdbId,
+          country: region,
+        );
+
+        final results = await Future.wait<String?>([
+          overrideF.catchError((_) => null),
+          directF.catchError((_) => null),
+        ]).timeout(const Duration(seconds: 6), onTimeout: () => [null, null]);
+
+        final overrideUrl = results.isNotEmpty ? results[0] : null;
+        final directUrl = results.length > 1 ? results[1] : null;
+
+        if (overrideUrl != null && overrideUrl.isNotEmpty) {
+          _prefetchedAmazonUrl = AffiliateLinkService.ensureAmazonAffiliateTag(overrideUrl, countryCode: region);
+        } else if (directUrl != null && directUrl.isNotEmpty) {
+          _prefetchedAmazonUrl = AffiliateLinkService.ensureAmazonAffiliateTag(directUrl, countryCode: region);
+        } else {
+          _prefetchedAmazonUrl = AffiliateLinkService.buildAmazonSearchUrl(
+            title: widget.movie.title,
+            year: widget.movie.releaseDate,
+            imdbId: imdbId,
+            countryCode: region,
+          );
+        }
+      } else if (platform != null) {
+        // Non-Amazon: try provider direct, else TMDB watch
+        final direct = await ServerStreamingService().getProviderDirectLink(
+          title: widget.movie.title,
+          year: widget.movie.releaseDate,
+          provider: platform,
+          country: region,
+        ).timeout(const Duration(seconds: 6), onTimeout: () => null);
+        _prefetchedProviderUrl = direct ?? StreamingService().buildTmdbWatchUrl(
+          movieId: widget.movie.id,
+          region: region,
+        );
+      }
+      if (mounted) setState(() {});
+    } catch (_) {
+      // Prefetch failures are non-fatal
+    }
   }
 
   Future<void> _loadPhotos() async {
@@ -709,6 +780,14 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                             // If Amazon is selected/best platform, open affiliate search link
                             if (platform == 'amazon_prime') {
                               final countryCode = await _inferCountryCode();
+                              // Use prefetched if available for instant open
+                              if (_prefetchedAmazonUrl != null) {
+                                final uri = Uri.parse(_prefetchedAmazonUrl!);
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  return;
+                                }
+                              }
                               // Try to enrich search with IMDb ID for better precision
                               String? imdbId;
                               try {
@@ -761,6 +840,14 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                             // Non-Amazon providers: try direct provider link via server (JustWatch), else TMDB watch page
                             try {
                               final region = await _inferCountryCode();
+                              // Use prefetched if available for instant open
+                              if (_prefetchedProviderUrl != null) {
+                                final uri = Uri.parse(_prefetchedProviderUrl!);
+                                if (await canLaunchUrl(uri)) {
+                                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                  return;
+                                }
+                              }
                               // Attempt direct link
                               final direct = await ServerStreamingService().getProviderDirectLink(
                                 title: widget.movie.title,

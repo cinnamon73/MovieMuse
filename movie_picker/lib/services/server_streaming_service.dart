@@ -7,7 +7,7 @@ import 'package:flutter_dotenv/flutter_dotenv.dart';
 
 class ServerStreamingService {
   final Dio _dio;
-  // Use localhost for Windows Flutter, 10.0.2.2 for Android emulator, and your computer's IP for physical devices
+  // Use hosted server by default; allow opting into local emulator on Android via env
   static String get _serverBaseUrl {
     // Preferred: explicit overrides
     final dotEnvOverride = dotenv.env['SEMANTIC_SERVER_URL'];
@@ -26,7 +26,14 @@ class ServerStreamingService {
     // Platform-aware defaults
     if (kIsWeb) return hostedUrl;
     try {
-      if (Platform.isAndroid) return 'http://10.0.2.2:3001';
+      // Only use 10.0.2.2 for Android emulator when explicitly enabled
+      if (Platform.isAndroid) {
+        final useLocal = (dotenv.env['USE_LOCAL_SERVER'] ?? '').toLowerCase();
+        if (useLocal == '1' || useLocal == 'true') {
+          return 'http://10.0.2.2:3001';
+        }
+        return hostedUrl;
+      }
       if (Platform.isIOS) return hostedUrl;
       if (Platform.isWindows || Platform.isLinux || Platform.isMacOS) return hostedUrl;
       return hostedUrl;
@@ -47,9 +54,10 @@ class ServerStreamingService {
   final Map<String, DateTime> _cacheTimestamps = {};
 
   ServerStreamingService() : _dio = Dio() {
-    _dio.options.connectTimeout = const Duration(seconds: 10);
-    _dio.options.receiveTimeout = const Duration(seconds: 10);
-    _dio.options.sendTimeout = const Duration(seconds: 10);
+    // Tighter timeouts to avoid long waits on Android when a host is unreachable
+    _dio.options.connectTimeout = const Duration(seconds: 4);
+    _dio.options.receiveTimeout = const Duration(seconds: 8);
+    _dio.options.sendTimeout = const Duration(seconds: 8);
   }
 
   // Get direct Amazon link via server PA-API endpoint; returns null if unavailable
