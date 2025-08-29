@@ -498,9 +498,47 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
     if (_controller == null) {
       return Container(color: Colors.black);
     }
-    return AspectRatio(
-      aspectRatio: 2/3, // roughly poster aspect, player letterboxes internally
-      child: YoutubePlayer(controller: _controller!),
+    return Stack(
+      children: [
+        AspectRatio(
+          aspectRatio: 2/3, // roughly poster aspect, player letterboxes internally
+          child: YoutubePlayer(controller: _controller!),
+        ),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: Material(
+            color: Colors.black.withOpacity(0.5),
+            borderRadius: BorderRadius.circular(20),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(20),
+              onTap: () {
+                final url = widget.youtubeUrl;
+                Navigator.of(context).push(
+                  MaterialPageRoute(
+                    fullscreenDialog: true,
+                    builder: (_) {
+                      return Scaffold(
+                        backgroundColor: Colors.black,
+                        body: Center(
+                          child: AspectRatio(
+                            aspectRatio: 16/9,
+                            child: YoutubePlayer(controller: _controller!),
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                );
+              },
+              child: const Padding(
+                padding: EdgeInsets.all(8.0),
+                child: Icon(Icons.fullscreen, color: Colors.white, size: 20),
+              ),
+            ),
+          ),
+        ),
+      ],
     );
   }
 }
