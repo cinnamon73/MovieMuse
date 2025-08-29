@@ -153,6 +153,14 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
 
     return GestureDetector(
       onDoubleTap: _toggleInlineTrailer,
+      onPanStart: (_) {
+        // If a trailer is playing inline, hide it immediately to avoid overlay issues while swiping
+        if (_showInlineTrailer) {
+          setState(() {
+            _showInlineTrailer = false;
+          });
+        }
+      },
       onPanUpdate: (details) {
         setState(() {
           _offset += details.delta;

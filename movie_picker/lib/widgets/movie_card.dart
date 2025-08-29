@@ -507,36 +507,54 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
         Positioned(
           top: 8,
           right: 8,
-          child: Material(
-            color: Colors.black.withOpacity(0.5),
-            borderRadius: BorderRadius.circular(20),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(20),
-              onTap: () {
-                final url = widget.youtubeUrl;
-                Navigator.of(context).push(
-                  MaterialPageRoute(
-                    fullscreenDialog: true,
-                    builder: (_) {
-                      return Scaffold(
-                        backgroundColor: Colors.black,
-                        body: Center(
-                          child: AspectRatio(
-                            aspectRatio: 16/9,
-                            child: YoutubePlayer(controller: _controller!),
-                          ),
+          child: _controller == null
+              ? const SizedBox.shrink()
+              : Material(
+                  color: Colors.black.withOpacity(0.5),
+                  borderRadius: BorderRadius.circular(20),
+                  child: InkWell(
+                    borderRadius: BorderRadius.circular(20),
+                    onTap: () async {
+                      // Pause inline before opening fullscreen
+                      try { _controller!.pauseVideo(); } catch (_) {}
+                      final url = widget.youtubeUrl;
+                      await Navigator.of(context).push(
+                        MaterialPageRoute(
+                          fullscreenDialog: true,
+                          builder: (_) {
+                            final vid = YoutubePlayerController.convertUrlToId(url);
+                            final full = YoutubePlayerController(
+                              params: const YoutubePlayerParams(
+                                showFullscreenButton: false,
+                                strictRelatedVideos: true,
+                                playsInline: true,
+                              ),
+                            );
+                            if (vid != null) {
+                              full.loadVideoById(videoId: vid);
+                              full.playVideo();
+                            }
+                            return Scaffold(
+                              backgroundColor: Colors.black,
+                              body: Center(
+                                child: AspectRatio(
+                                  aspectRatio: 16/9,
+                                  child: YoutubePlayer(controller: full),
+                                ),
+                              ),
+                            );
+                          },
                         ),
                       );
+                      // Resume inline after returning
+                      try { _controller!.playVideo(); } catch (_) {}
                     },
+                    child: const Padding(
+                      padding: EdgeInsets.all(8.0),
+                      child: Icon(Icons.fullscreen, color: Colors.white, size: 20),
+                    ),
                   ),
-                );
-              },
-              child: const Padding(
-                padding: EdgeInsets.all(8.0),
-                child: Icon(Icons.fullscreen, color: Colors.white, size: 20),
-              ),
-            ),
-          ),
+                ),
         ),
       ],
     );
