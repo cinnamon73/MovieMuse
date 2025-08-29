@@ -10,6 +10,7 @@ import '../widgets/enhanced_cast_crew_section.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../services/affiliate_link_service.dart';
 import '../services/server_streaming_service.dart';
+import '../services/provider_link_service.dart';
 import '../widgets/trailer_player_sheet.dart';
 import '../services/firebase_platform_service.dart';
 import '../widgets/friend_selection_modal.dart';
@@ -861,7 +862,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                               _showComingSoonDialog(platformInfo['name']);
                               return;
                             }
-                            // Non-Amazon providers: try direct provider link via server (JustWatch), else TMDB watch page
+                            // Non-Amazon providers: try direct provider link via server (JustWatch), else provider search page
                             try {
                               final region = await _inferCountryCode();
                               // Use prefetched if available for instant open
@@ -879,8 +880,10 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                 provider: platform, // our platform key (e.g., netflix, disney_plus)
                                 country: region,
                               );
-                              final urlToOpen = direct ?? StreamingService().buildTmdbWatchUrl(
-                                movieId: widget.movie.id,
+                              final urlToOpen = direct ?? ProviderLinkService.buildSearchUrl(
+                                platform: platform,
+                                title: widget.movie.title,
+                                year: widget.movie.releaseDate,
                                 region: region,
                               );
                               final uri = Uri.parse(urlToOpen);
