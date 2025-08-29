@@ -9,6 +9,7 @@ import '../widgets/friend_selection_modal.dart';
 import '../widgets/bookmark_badge.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/services.dart';
 
 class MovieCard extends StatelessWidget {
   final Movie movie;
@@ -234,6 +235,7 @@ class MovieCard extends StatelessWidget {
                 ],
               ],
             ),
+
           ),
           // Top-right controls: fullscreen button and optional quality badge
           Positioned(
@@ -242,7 +244,7 @@ class MovieCard extends StatelessWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                if (hasTrailer) Material(
+                if (inlineTrailerUrl != null) Material(
                   color: Colors.black.withOpacity(0.5),
                   borderRadius: BorderRadius.circular(20),
                   child: InkWell(
@@ -263,6 +265,12 @@ class MovieCard extends StatelessWidget {
                         controller.loadVideoById(videoId: videoId);
                         controller.playVideo();
                       }
+                      // Force landscape fullscreen
+                      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                      await SystemChrome.setPreferredOrientations([
+                        DeviceOrientation.landscapeLeft,
+                        DeviceOrientation.landscapeRight,
+                      ]);
                       await Navigator.of(context).push(
                         MaterialPageRoute(
                           fullscreenDialog: true,
@@ -277,6 +285,11 @@ class MovieCard extends StatelessWidget {
                           ),
                         ),
                       );
+                      // Restore portrait and system UI
+                      await SystemChrome.setPreferredOrientations([
+                        DeviceOrientation.portraitUp,
+                      ]);
+                      await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
                       try { controller.close(); } catch (_) {}
                     },
                     child: const Padding(
@@ -568,6 +581,12 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
                 customBorder: const CircleBorder(),
                 onTap: () async {
                   final url = widget.youtubeUrl;
+                  // Force landscape fullscreen
+                  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+                  await SystemChrome.setPreferredOrientations([
+                    DeviceOrientation.landscapeLeft,
+                    DeviceOrientation.landscapeRight,
+                  ]);
                   await Navigator.of(context).push(
                     MaterialPageRoute(
                       fullscreenDialog: true,
@@ -596,6 +615,11 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
                       },
                     ),
                   );
+                  // Restore portrait and system UI
+                  await SystemChrome.setPreferredOrientations([
+                    DeviceOrientation.portraitUp,
+                  ]);
+                  await SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
                 },
                 child: const Padding(
                   padding: EdgeInsets.all(16.0),
