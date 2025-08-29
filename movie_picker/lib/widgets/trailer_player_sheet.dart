@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kReleaseMode;
 import 'package:url_launcher/url_launcher.dart';
+import 'package:flutter/services.dart';
 
 class TrailerPlayerSheet extends StatefulWidget {
   final String youtubeUrl;
@@ -64,6 +65,19 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
                 const Text('Trailer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
                 IconButton(
+                  icon: const Icon(Icons.fullscreen),
+                  onPressed: _controller == null ? null : () async {
+                    final url = widget.youtubeUrl;
+                    if (url.isEmpty) return;
+                    await Navigator.of(context).push(
+                      MaterialPageRoute(
+                        fullscreenDialog: true,
+                        builder: (_) => _FullscreenTrailerPage(youtubeUrl: url),
+                      ),
+                    );
+                  },
+                ),
+                IconButton(
                   icon: const Icon(Icons.close),
                   onPressed: () => Navigator.of(context).pop(),
                 )
@@ -87,6 +101,72 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
                 ),
               ),
           ],
+        ),
+      ),
+    );
+  }
+}
+
+class _FullscreenTrailerPage extends StatefulWidget {
+  final String youtubeUrl;
+  const _FullscreenTrailerPage({required this.youtubeUrl});
+
+  @override
+  State<_FullscreenTrailerPage> createState() => _FullscreenTrailerPageState();
+}
+
+class _FullscreenTrailerPageState extends State<_FullscreenTrailerPage> {
+  YoutubePlayerController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    // Force landscape and immersive mode
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.leanBack);
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.landscapeLeft,
+      DeviceOrientation.landscapeRight,
+    ]);
+
+    final videoId = YoutubePlayerController.convertUrlToId(widget.youtubeUrl);
+    final controller = YoutubePlayerController(
+      params: const YoutubePlayerParams(
+        showFullscreenButton: false,
+        strictRelatedVideos: true,
+        playsInline: true,
+      ),
+    );
+    _controller = controller;
+    if (videoId != null) {
+      controller.loadVideoById(videoId: videoId);
+      controller.playVideo();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.close();
+    // Restore portrait and UI
+    SystemChrome.setPreferredOrientations([
+      DeviceOrientation.portraitUp,
+      DeviceOrientation.portraitDown,
+    ]);
+    SystemChrome.setEnabledSystemUIMode(SystemUiMode.edgeToEdge);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      backgroundColor: Colors.black,
+      body: SafeArea(
+        child: Center(
+          child: _controller == null
+              ? const SizedBox.shrink()
+              : AspectRatio(
+                  aspectRatio: 16 / 9,
+                  child: YoutubePlayer(controller: _controller!),
+                ),
         ),
       ),
     );

@@ -98,7 +98,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
       // Decide best platform first
       final platform = await _platformFuture;
       if (platform == 'amazon_prime') {
-        // Try override, PA-API, then search in parallel with timeouts
+        // Try override, PA-API, and JustWatch provider-direct in parallel with short timeout
         String? imdbId;
         try {
           final external = await MovieService().fetchExternalIds(widget.movie.id);
@@ -116,26 +116,29 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
           imdbId: imdbId,
           country: region,
         );
+        final providerDirectF = ServerStreamingService().getProviderDirectLink(
+          title: widget.movie.title,
+          year: widget.movie.releaseDate,
+          provider: 'amazon_prime',
+          country: region,
+        );
 
         final results = await Future.wait<String?>([
           overrideF.catchError((_) => null),
           directF.catchError((_) => null),
-        ]).timeout(const Duration(seconds: 6), onTimeout: () => [null, null]);
+          providerDirectF.catchError((_) => null),
+        ]).timeout(const Duration(milliseconds: 1200), onTimeout: () => [null, null, null]);
 
         final overrideUrl = results.isNotEmpty ? results[0] : null;
         final directUrl = results.length > 1 ? results[1] : null;
+        final providerDirectUrl = results.length > 2 ? results[2] : null;
 
-        if (overrideUrl != null && overrideUrl.isNotEmpty) {
-          _prefetchedAmazonUrl = AffiliateLinkService.ensureAmazonAffiliateTag(overrideUrl, countryCode: region);
-        } else if (directUrl != null && directUrl.isNotEmpty) {
-          _prefetchedAmazonUrl = AffiliateLinkService.ensureAmazonAffiliateTag(directUrl, countryCode: region);
+        String? best = overrideUrl ?? providerDirectUrl ?? directUrl;
+        if (best != null && best.isNotEmpty) {
+          _prefetchedAmazonUrl = AffiliateLinkService.ensureAmazonAffiliateTag(best, countryCode: region);
         } else {
-          _prefetchedAmazonUrl = AffiliateLinkService.buildAmazonSearchUrl(
-            title: widget.movie.title,
-            year: widget.movie.releaseDate,
-            imdbId: imdbId,
-            countryCode: region,
-          );
+          // Fallback to TMDB watch page fast; search will only be used on tap if absolutely needed
+          _prefetchedAmazonUrl = StreamingService().buildTmdbWatchUrl(movieId: widget.movie.id, region: region);
         }
       } else if (platform != null) {
         // Non-Amazon: try provider direct, else TMDB watch
@@ -144,7 +147,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
           year: widget.movie.releaseDate,
           provider: platform,
           country: region,
-        ).timeout(const Duration(seconds: 6), onTimeout: () => null);
+        ).timeout(const Duration(milliseconds: 1200), onTimeout: () => null);
         _prefetchedProviderUrl = direct ?? StreamingService().buildTmdbWatchUrl(
           movieId: widget.movie.id,
           region: region,
@@ -822,14 +825,30 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                   }
                                 }
                               } catch (_) {}
-                              // First, try direct detail link via server PA-API
+                              // Try provider-direct via JustWatch with short timeout
+                              try {
+                                final directJustWatch = await ServerStreamingService().getProviderDirectLink(
+                                  title: widget.movie.title,
+                                  year: widget.movie.releaseDate,
+                                  provider: 'amazon_prime',
+                                  country: countryCode,
+                                ).timeout(const Duration(milliseconds: 1200), onTimeout: () => null);
+                                if (directJustWatch != null && directJustWatch.isNotEmpty) {
+                                  final uri = Uri.parse(AffiliateLinkService.ensureAmazonAffiliateTag(directJustWatch, countryCode: countryCode));
+                                  if (await canLaunchUrl(uri)) {
+                                    await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                    return;
+                                  }
+                                }
+                              } catch (_) {}
+                              // Then, try direct detail link via server PA-API
                               try {
                                 final directUrl = await ServerStreamingService().getAmazonDirectLink(
                                   title: widget.movie.title,
                                   year: widget.movie.releaseDate,
                                   imdbId: imdbId,
                                   country: countryCode,
-                                );
+                                ).timeout(const Duration(milliseconds: 1200), onTimeout: () => null);
                                 if (directUrl != null && directUrl.isNotEmpty) {
                                   final uri = Uri.parse(AffiliateLinkService.ensureAmazonAffiliateTag(directUrl, countryCode: countryCode));
                                   if (await canLaunchUrl(uri)) {
@@ -838,13 +857,12 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                   }
                                 }
                               } catch (_) {}
-                              final searchUrl = AffiliateLinkService.buildAmazonSearchUrl(
-                                title: widget.movie.title,
-                                year: widget.movie.releaseDate,
-                                imdbId: imdbId,
-                                countryCode: countryCode,
+                              // Final fallback: open TMDB watch page fast (no search delay)
+                              final tmdbUrl = StreamingService().buildTmdbWatchUrl(
+                                movieId: widget.movie.id,
+                                region: countryCode,
                               );
-                              final uri = Uri.parse(searchUrl);
+                              final uri = Uri.parse(tmdbUrl);
                               if (await canLaunchUrl(uri)) {
                                 await launchUrl(uri, mode: LaunchMode.externalApplication);
                                 return;
