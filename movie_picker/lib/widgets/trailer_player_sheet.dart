@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
-import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
+import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform, kReleaseMode;
+import 'package:url_launcher/url_launcher.dart';
 
 class TrailerPlayerSheet extends StatefulWidget {
   final String youtubeUrl;
@@ -30,6 +31,16 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
       if (videoId != null) {
         controller.loadVideoById(videoId: videoId);
         controller.playVideo();
+      }
+    } else {
+      // Desktop: In non-release builds, open externally to validate flow during testing
+      if (!kReleaseMode) {
+        WidgetsBinding.instance.addPostFrameCallback((_) async {
+          final uri = Uri.parse(widget.youtubeUrl);
+          if (await canLaunchUrl(uri)) {
+            await launchUrl(uri, mode: LaunchMode.externalApplication);
+          }
+        });
       }
     }
   }
@@ -67,9 +78,11 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
               Container(
                 height: MediaQuery.of(context).size.width * 9 / 16,
                 alignment: Alignment.center,
-                child: const Text(
-                  'Trailer playback is available on mobile devices.',
-                  style: TextStyle(color: Colors.white70),
+                child: Text(
+                  kReleaseMode
+                      ? 'Trailer playback is available on mobile devices.'
+                      : 'Opening trailer in your browser for testing (desktop dev only).',
+                  style: const TextStyle(color: Colors.white70),
                   textAlign: TextAlign.center,
                 ),
               ),
