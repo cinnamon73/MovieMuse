@@ -41,7 +41,11 @@ class ProviderLinkService {
   }
 
   static String _encodeQuery(String title, String? year) {
-    final q = [title, if (year != null && year.trim().isNotEmpty) year.trim()]
+    final cleanedTitle = title
+        .replaceAll(RegExp(r"\s+\(\d{4}\)$"), '') // remove trailing (YYYY)
+        .replaceAll(RegExp(r"tt\d{7,}"), '') // strip IMDb IDs if present
+        .trim();
+    final q = [cleanedTitle, if (year != null && year.trim().isNotEmpty) year.trim()]
         .where((e) => e != null && e!.isNotEmpty)
         .map((e) => e!)
         .join(' ');

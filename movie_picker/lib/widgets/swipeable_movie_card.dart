@@ -195,7 +195,7 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
                 Matrix4.identity()
                   ..translate(currentOffset.dx, currentOffset.dy)
                   ..rotateZ(currentAngle),
-            child: _InlineTrailerOverlay(
+            child: _OptimizedMovieCard(
               movie: widget.movie,
               onMarkWatched: widget.onSwipeRight,
               onBookmark: widget.onSwipeDown,

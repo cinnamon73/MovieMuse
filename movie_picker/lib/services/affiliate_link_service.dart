@@ -15,13 +15,13 @@ class AffiliateLinkService {
     final domain = _amazonDomainForCountry(countryCode);
     final tag = _amazonTagForCountry(countryCode);
 
+    // Build a user-friendly search query: Title + Year only (exclude IMDb IDs like tt7181546)
     final query = [
       title,
-      if (year != null && year.trim().isNotEmpty) year,
-      if (imdbId != null && imdbId.trim().isNotEmpty) imdbId,
+      if (year != null && year.trim().isNotEmpty) year.trim(),
     ]
-        .where((v) => v != null && v!.trim().isNotEmpty)
-        .map((v) => v!.trim())
+        .where((v) => v != null && v!.isNotEmpty)
+        .map((v) => v!)
         .join(' ');
 
     final uri = Uri.https(domain, '/s', {
@@ -172,8 +172,16 @@ class AffiliateLinkService {
   ///  - AMZN_ASSOC_TAG_DE ... etc
   static String? _amazonTagForCountry(String countryCode) {
     final code = countryCode.toUpperCase();
-    final key = 'AMZN_ASSOC_TAG_$code';
-    return dotenv.env[key];
+    final keys = [
+      'AMZN_ASSOC_TAG_$code', // region-specific Associates tag
+      'AMZN_ASSOC_TAG',       // global fallback Associates tag
+      'AMZN_PARTNER_TAG',     // PA-API partner tag fallback if provided
+    ];
+    for (final k in keys) {
+      final v = dotenv.env[k];
+      if (v != null && v.trim().isNotEmpty) return v.trim();
+    }
+    return null;
   }
 }
 
