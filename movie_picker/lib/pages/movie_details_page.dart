@@ -862,7 +862,6 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                               final searchUrl = AffiliateLinkService.buildAmazonSearchUrl(
                                 title: widget.movie.title,
                                 year: widget.movie.releaseDate,
-                                imdbId: imdbId,
                                 countryCode: countryCode,
                               );
                               final uri = Uri.parse(searchUrl);
@@ -950,7 +949,7 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                     borderRadius: BorderRadius.circular(12),
                                   ),
                                   child: Text(
-                                    platform == 'amazon_prime' ? 'Watch Now' : 'Coming Soon',
+                                    'Watch Now',
                                     style: const TextStyle(
                                       color: Colors.white,
                                       fontWeight: FontWeight.bold,

@@ -9,15 +9,18 @@ class AffiliateLinkService {
   static String buildAmazonSearchUrl({
     required String title,
     String? year,
-    String? imdbId,
     String countryCode = 'GB',
   }) {
     final domain = _amazonDomainForCountry(countryCode);
     final tag = _amazonTagForCountry(countryCode);
 
     // Build a user-friendly search query: Title + Year only (exclude IMDb IDs like tt7181546)
+    // Strip any imdb id tokens from title just in case
+    final cleanedTitle = title
+        .replaceAll(RegExp(r"tt\d{7,}"), '')
+        .trim();
     final query = [
-      title,
+      cleanedTitle,
       if (year != null && year.trim().isNotEmpty) year.trim(),
     ]
         .where((v) => v != null && v!.isNotEmpty)
