@@ -41,7 +41,7 @@ class MovieCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Stack(
         children: [
-          // Movie Poster
+          // Poster or inline trailer placeholder (double-tap handled in parent)
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
             child: _buildOptimizedImage(),

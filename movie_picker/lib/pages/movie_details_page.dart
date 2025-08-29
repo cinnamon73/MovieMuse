@@ -137,8 +137,8 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
         if (best != null && best.isNotEmpty) {
           _prefetchedAmazonUrl = AffiliateLinkService.ensureAmazonAffiliateTag(best, countryCode: region);
         } else {
-          // Fallback to TMDB watch page fast; search will only be used on tap if absolutely needed
-          _prefetchedAmazonUrl = StreamingService().buildTmdbWatchUrl(movieId: widget.movie.id, region: region);
+          // No fallback to TMDB for Amazon; require direct link
+          _prefetchedAmazonUrl = null;
         }
       } else if (platform != null) {
         // Non-Amazon: try provider direct, else TMDB watch
@@ -857,16 +857,9 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                   }
                                 }
                               } catch (_) {}
-                              // Final fallback: open TMDB watch page fast (no search delay)
-                              final tmdbUrl = StreamingService().buildTmdbWatchUrl(
-                                movieId: widget.movie.id,
-                                region: countryCode,
-                              );
-                              final uri = Uri.parse(tmdbUrl);
-                              if (await canLaunchUrl(uri)) {
-                                await launchUrl(uri, mode: LaunchMode.externalApplication);
-                                return;
-                              }
+                              // Final: do not open TMDB for Amazon; show message
+                              _showComingSoonDialog(platformInfo['name']);
+                              return;
                             }
                             // Non-Amazon providers: try direct provider link via server (JustWatch), else TMDB watch page
                             try {
