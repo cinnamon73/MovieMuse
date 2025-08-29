@@ -118,6 +118,23 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
     return (_offset.dx / 150).clamp(-1, 1); // Lowered from 200 for more responsive feedback
   }
 
+  String? _inlineTrailerUrl;
+  bool _showInlineTrailer = false;
+
+  Future<void> _toggleInlineTrailer() async {
+    if (_showInlineTrailer) {
+      setState(() { _showInlineTrailer = false; });
+      return;
+    }
+    final url = await widget.movieService.fetchTrailerUrl(widget.movie.id);
+    if (!mounted) return;
+    if (url == null) return;
+    setState(() {
+      _inlineTrailerUrl = url;
+      _showInlineTrailer = true;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     if (!widget.isTop) {
@@ -135,20 +152,7 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
     }
 
     return GestureDetector(
-      onDoubleTap: () async {
-        final url = await widget.movieService.fetchTrailerUrl(widget.movie.id);
-        if (url == null) return;
-        if (!mounted) return;
-        showModalBottomSheet(
-          context: context,
-          isScrollControlled: true,
-          backgroundColor: Colors.black,
-          builder: (_) => SizedBox(
-            height: MediaQuery.of(context).size.height * 0.6,
-            child: _TrailerSheetLauncher(youtubeUrl: url),
-          ),
-        );
-      },
+      onDoubleTap: _toggleInlineTrailer,
       onPanUpdate: (details) {
         setState(() {
           _offset += details.delta;
@@ -191,7 +195,7 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
                 Matrix4.identity()
                   ..translate(currentOffset.dx, currentOffset.dy)
                   ..rotateZ(currentAngle),
-            child: _OptimizedMovieCard(
+            child: _InlineTrailerOverlay(
               movie: widget.movie,
               onMarkWatched: widget.onSwipeRight,
               onBookmark: widget.onSwipeDown,
@@ -202,6 +206,8 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
               rating: widget.rating,
               onRatingChanged: widget.onRatingChanged,
               recommendedBy: widget.recommendedBy,
+              showTrailer: _showInlineTrailer,
+              trailerUrl: _inlineTrailerUrl,
             ),
           );
         },
@@ -222,6 +228,8 @@ class _OptimizedMovieCard extends StatelessWidget {
   final double? rating;
   final ValueChanged<double>? onRatingChanged;
   final String? recommendedBy; // NEW: Who recommended this movie
+  final bool showTrailer;
+  final String? trailerUrl;
 
   const _OptimizedMovieCard({
     required this.movie,
@@ -234,6 +242,8 @@ class _OptimizedMovieCard extends StatelessWidget {
     this.rating,
     this.onRatingChanged,
     this.recommendedBy, // NEW: Optional recommender name
+    this.showTrailer = false,
+    this.trailerUrl,
   });
 
   @override
@@ -249,6 +259,7 @@ class _OptimizedMovieCard extends StatelessWidget {
       rating: rating,
       onRatingChanged: onRatingChanged,
       recommendedBy: recommendedBy, // NEW: Pass recommender info
+      inlineTrailerUrl: showTrailer ? trailerUrl : null,
     );
   }
 }

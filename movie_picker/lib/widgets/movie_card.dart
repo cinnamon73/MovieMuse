@@ -7,6 +7,7 @@ import '../themes/app_colors.dart';
 import '../utils/language_utils.dart';
 import '../widgets/friend_selection_modal.dart';
 import '../widgets/bookmark_badge.dart';
+import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 
 class MovieCard extends StatelessWidget {
   final Movie movie;
@@ -19,6 +20,7 @@ class MovieCard extends StatelessWidget {
   final MovieService? movieService; // Optional for quality checking
   final ValueChanged<double>? onRatingChanged;
   final String? recommendedBy; // NEW: Who recommended this movie
+  final String? inlineTrailerUrl; // If set, show inline player over poster
 
   const MovieCard({
     super.key,
@@ -32,6 +34,7 @@ class MovieCard extends StatelessWidget {
     this.movieService,
     this.onRatingChanged,
     this.recommendedBy, // NEW: Optional recommender name
+    this.inlineTrailerUrl,
   });
 
   @override
@@ -41,10 +44,12 @@ class MovieCard extends StatelessWidget {
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
       child: Stack(
         children: [
-          // Poster or inline trailer placeholder (double-tap handled in parent)
+          // Poster or inline trailer
           ClipRRect(
             borderRadius: BorderRadius.circular(16),
-            child: _buildOptimizedImage(),
+            child: inlineTrailerUrl == null
+                ? _buildOptimizedImage()
+                : _InlineYouTube(youtubeUrl: inlineTrailerUrl!),
           ),
           // Swipe Feedback Overlay
           if (swipeProgress != 0)
@@ -449,5 +454,53 @@ class MovieCard extends StatelessWidget {
       default:
         return AppColors.genreDefault.withValues(alpha: 0.8);
     }
+  }
+
+}
+
+class _InlineYouTube extends StatefulWidget {
+  final String youtubeUrl;
+  const _InlineYouTube({required this.youtubeUrl});
+
+  @override
+  State<_InlineYouTube> createState() => _InlineYouTubeState();
+}
+
+class _InlineYouTubeState extends State<_InlineYouTube> {
+  YoutubePlayerController? _controller;
+
+  @override
+  void initState() {
+    super.initState();
+    final videoId = YoutubePlayerController.convertUrlToId(widget.youtubeUrl);
+    final controller = YoutubePlayerController(
+      params: const YoutubePlayerParams(
+        showFullscreenButton: true,
+        strictRelatedVideos: true,
+        playsInline: true,
+      ),
+    );
+    _controller = controller;
+    if (videoId != null) {
+      controller.loadVideoById(videoId: videoId);
+      controller.playVideo();
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller?.close();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_controller == null) {
+      return Container(color: Colors.black);
+    }
+    return AspectRatio(
+      aspectRatio: 2/3, // roughly poster aspect, player letterboxes internally
+      child: YoutubePlayer(controller: _controller!),
+    );
   }
 }

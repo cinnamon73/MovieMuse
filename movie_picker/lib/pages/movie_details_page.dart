@@ -858,9 +858,18 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                   }
                                 }
                               } catch (_) {}
-                              // Final: do not open TMDB for Amazon; show message
-                              _showComingSoonDialog(platformInfo['name']);
-                              return;
+                              // Final fallback: fast Amazon search with affiliate tag
+                              final searchUrl = AffiliateLinkService.buildAmazonSearchUrl(
+                                title: widget.movie.title,
+                                year: widget.movie.releaseDate,
+                                imdbId: imdbId,
+                                countryCode: countryCode,
+                              );
+                              final uri = Uri.parse(searchUrl);
+                              if (await canLaunchUrl(uri)) {
+                                await launchUrl(uri, mode: LaunchMode.externalApplication);
+                                return;
+                              }
                             }
                             // Non-Amazon providers: try direct provider link via server (JustWatch), else provider search page
                             try {
