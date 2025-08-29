@@ -687,59 +687,72 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                                 .map((p) => StreamingService().getPlatformInfo(p)['name'] as String)
                                 .join(', ');
                             
+                            final gradientColors = StreamingService().getPlatformInfo(widget.selectedPlatform!)['gradient'] as List<int>;
                             return Container(
                               width: double.infinity,
-                              padding: const EdgeInsets.all(20),
+                              padding: const EdgeInsets.all(16),
                               decoration: BoxDecoration(
-                                color: Colors.grey[800],
+                                color: Color(gradientColors[0]).withOpacity(0.08),
                                 borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: Color(gradientColors[0]).withOpacity(0.28),
+                                  width: 1,
+                                ),
                               ),
-                              child: Column(
+                              child: Row(
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Icon(Icons.info_outline, color: Colors.orange),
-                                      const SizedBox(width: 12),
-                                      Expanded(
-                                        child: Text(
-                                          'Not available on ${platformInfo['name']}',
-                                          style: const TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 16,
-                                            fontWeight: FontWeight.w600,
-                                          ),
+                                  Text(platformInfo['icon'], style: const TextStyle(fontSize: 24)),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Expanded(
+                                              child: Text(
+                                                platformInfo['displayName'],
+                                                style: const TextStyle(
+                                                  color: Colors.white,
+                                                  fontSize: 16,
+                                                  fontWeight: FontWeight.w600,
+                                                ),
+                                              ),
+                                            ),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                              decoration: BoxDecoration(
+                                                color: Color(gradientColors[0]).withOpacity(0.2),
+                                                borderRadius: BorderRadius.circular(10),
+                                              ),
+                                              child: const Text(
+                                                'Unavailable',
+                                                style: TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.bold),
+                                              ),
+                                            ),
+                                          ],
                                         ),
-                                      ),
-                                    ],
-                                  ),
-                                  const SizedBox(height: 8),
-                                  Text(
-                                    'This movie is not currently streaming on ${platformInfo['name']}.',
-                                    style: TextStyle(
-                                      color: Colors.white70,
-                                      fontSize: 14,
+                                        const SizedBox(height: 6),
+                                        Text(
+                                          'This title is currently unavailable on ${platformInfo['name']} in your region.',
+                                          style: TextStyle(color: Colors.white70, fontSize: 12),
+                                        ),
+                                        if (availablePlatforms.isNotEmpty) ...[
+                                          const SizedBox(height: 6),
+                                          Text(
+                                            'Available on: $platformNames',
+                                            style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.w600),
+                                          ),
+                                          const SizedBox(height: 4),
+                                          Text(
+                                            'Remove the ${platformInfo['name']} filter to view all providers.',
+                                            style: TextStyle(color: Colors.white60, fontSize: 11),
+                                          ),
+                                        ],
+                                      ],
                                     ),
                                   ),
-                                  if (availablePlatforms.isNotEmpty) ...[
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Available on: $platformNames',
-                                      style: TextStyle(
-                                        color: Colors.green,
-                                        fontSize: 14,
-                                        fontWeight: FontWeight.w600,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Text(
-                                      'Try removing the platform filter to see all available options.',
-                                      style: TextStyle(
-                                        color: Colors.white70,
-                                        fontSize: 12,
-                                      ),
-                                    ),
-                                  ],
                                 ],
                               ),
                             );
