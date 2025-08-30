@@ -570,8 +570,6 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
           showFullscreenButton: true,
           strictRelatedVideos: true,
           playsInline: true,
-          autoPlay: true,
-          mute: true,
         ),
       );
       _controller = controller;
@@ -623,12 +621,12 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
                             showFullscreenButton: false,
                             strictRelatedVideos: true,
                             playsInline: true,
-                            autoPlay: true,
                           ),
                         );
                         if (vid != null) {
                           full.loadVideoById(videoId: vid);
-                          full.playVideo();
+                          // Best effort autoplay by seeking then play (works across versions)
+                          try { full.playVideo(); } catch (_) {}
                         }
                         return Scaffold(
                           backgroundColor: Colors.black,
@@ -718,12 +716,11 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
                                 showFullscreenButton: false,
                                 strictRelatedVideos: true,
                                 playsInline: true,
-                                autoPlay: true,
                               ),
                             );
                             if (vid != null) {
                               full.loadVideoById(videoId: vid);
-                              full.playVideo();
+                              try { full.playVideo(); } catch (_) {}
                             }
                             return Scaffold(
                               backgroundColor: Colors.black,
