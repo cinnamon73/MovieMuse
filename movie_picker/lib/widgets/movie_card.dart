@@ -276,11 +276,35 @@ class MovieCard extends StatelessWidget {
                           fullscreenDialog: true,
                           builder: (_) => Scaffold(
                             backgroundColor: Colors.black,
-                            body: Center(
-                              child: AspectRatio(
-                                aspectRatio: 16/9,
-                                child: YoutubePlayer(controller: controller),
-                              ),
+                            body: Stack(
+                              children: [
+                                Center(
+                                  child: AspectRatio(
+                                    aspectRatio: 16/9,
+                                    child: YoutubePlayer(controller: controller),
+                                  ),
+                                ),
+                                SafeArea(
+                                  child: Align(
+                                    alignment: Alignment.topRight,
+                                    child: Padding(
+                                      padding: const EdgeInsets.all(12.0),
+                                      child: Material(
+                                        color: Colors.black.withOpacity(0.5),
+                                        shape: const CircleBorder(),
+                                        child: InkWell(
+                                          customBorder: const CircleBorder(),
+                                          onTap: () => Navigator.of(context).pop(),
+                                          child: const Padding(
+                                            padding: EdgeInsets.all(10.0),
+                                            child: Icon(Icons.close, color: Colors.white),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -546,6 +570,8 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
           showFullscreenButton: true,
           strictRelatedVideos: true,
           playsInline: true,
+          autoPlay: true,
+          mute: true,
         ),
       );
       _controller = controller;
@@ -597,6 +623,7 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
                             showFullscreenButton: false,
                             strictRelatedVideos: true,
                             playsInline: true,
+                            autoPlay: true,
                           ),
                         );
                         if (vid != null) {
@@ -605,11 +632,35 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
                         }
                         return Scaffold(
                           backgroundColor: Colors.black,
-                          body: Center(
-                            child: AspectRatio(
-                              aspectRatio: 16/9,
-                              child: YoutubePlayer(controller: full),
-                            ),
+                          body: Stack(
+                            children: [
+                              Center(
+                                child: AspectRatio(
+                                  aspectRatio: 16/9,
+                                  child: YoutubePlayer(controller: full),
+                                ),
+                              ),
+                              SafeArea(
+                                child: Align(
+                                  alignment: Alignment.topRight,
+                                  child: Padding(
+                                    padding: const EdgeInsets.all(12.0),
+                                    child: Material(
+                                      color: Colors.black.withOpacity(0.5),
+                                      shape: const CircleBorder(),
+                                      child: InkWell(
+                                        customBorder: const CircleBorder(),
+                                        onTap: () => Navigator.of(context).pop(),
+                                        child: const Padding(
+                                          padding: EdgeInsets.all(10.0),
+                                          child: Icon(Icons.close, color: Colors.white),
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                         );
                       },
@@ -667,6 +718,7 @@ class _InlineYouTubeState extends State<_InlineYouTube> {
                                 showFullscreenButton: false,
                                 strictRelatedVideos: true,
                                 playsInline: true,
+                                autoPlay: true,
                               ),
                             );
                             if (vid != null) {
