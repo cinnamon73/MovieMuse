@@ -9,12 +9,9 @@ else
   gem install cocoapods -N
 fi
 
-echo "[Xcode Cloud] pod repo update"
-pod repo update
-
-echo "[Xcode Cloud] pod install in ios/"
+echo "[Xcode Cloud] pod install (deployment) in ios/"
 cd ios
-pod install
+pod install --deployment
 cd - >/dev/null
 
 echo "[Xcode Cloud] pre_xcodebuild complete"

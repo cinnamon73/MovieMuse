@@ -1,4 +1,3 @@
-# Uncomment this line to define a global platform for your project
 source 'https://cdn.cocoapods.org/'
 platform :ios, '13.0'
 
@@ -28,57 +27,17 @@ require File.expand_path(File.join('packages', 'flutter_tools', 'bin', 'podhelpe
 flutter_ios_podfile_setup
 
 target 'Runner' do
-  # If you use Swift, this ensures all pods use Swift 5
-  use_frameworks!
-  use_modular_headers!
+  # Standard Flutter + Firebase: static frameworks avoid excessive embedding
+  use_frameworks! :linkage => :static
 
   flutter_install_all_ios_pods File.dirname(File.realpath(__FILE__))
 end
-
-install! 'cocoapods', :disable_input_output_paths => true
 
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
     target.build_configurations.each do |config|
       config.build_settings['IPHONEOS_DEPLOYMENT_TARGET'] = '13.0'
-      config.build_settings['ENABLE_BITCODE'] = 'NO'
-      # Avoid build failures for outdated pods declaring old minimums
-      config.build_settings['SWIFT_VERSION'] = '5.0'
-      
-      # Comprehensive fix for gRPC-C++ issues
-      if target.name == 'gRPC-C++' || target.name == 'gRPC-Core'
-        config.build_settings['CLANG_WARN_DOCUMENTATION_COMMENTS'] = 'NO'
-        config.build_settings['GCC_WARN_64_TO_32_BIT_CONVERSION'] = 'NO'
-        config.build_settings['GCC_WARN_UNUSED_FUNCTION'] = 'NO'
-        config.build_settings['GCC_WARN_UNUSED_VARIABLE'] = 'NO'
-        config.build_settings['GCC_WARN_ABOUT_RETURN_TYPE'] = 'NO'
-        config.build_settings['GCC_WARN_UNDECLARED_SELECTOR'] = 'NO'
-        config.build_settings['GCC_WARN_UNINITIALIZED_AUTOS'] = 'NO'
-        config.build_settings['CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF'] = 'NO'
-        config.build_settings['CLANG_WARN_STRICT_PROTOTYPES'] = 'NO'
-        config.build_settings['CLANG_WARN_SUSPICIOUS_IMPLICIT_CONVERSION'] = 'NO'
-      end
-      
-      # Fix for all targets
-      config.build_settings['ONLY_ACTIVE_ARCH'] = 'NO'
-      config.build_settings['VALID_ARCHS'] = 'arm64 x86_64'
-      
-      # Fix code signing for all frameworks
-      config.build_settings['CODE_SIGNING_ALLOWED'] = 'NO'
-      config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
-    end
-  end
-
-  # Remove the fragile CocoaPods diff step that causes CI failures when Podfile.lock
-  # and Manifest.lock differ only due to environment/version noise.
-  installer.aggregate_targets.each do |aggregate_target|
-    aggregate_target.user_targets.each do |user_target|
-      user_target.build_phases.each do |phase|
-        if phase.respond_to?(:name) && phase.name == '[CP] Check Pods Manifest.lock'
-          user_target.build_phases.delete(phase)
-        end
-      end
     end
   end
 end
