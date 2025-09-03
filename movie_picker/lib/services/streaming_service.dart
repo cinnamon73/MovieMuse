@@ -421,13 +421,13 @@ class StreamingService {
       'Netflix': 'netflix',
       'Amazon Prime Video': 'amazon_prime',
       'Disney Plus': 'disney_plus',
-      'HBO Max': 'hbo_max',
+
       'Hulu': 'hulu',
       'Apple TV Plus': 'apple_tv',
       'Paramount Plus': 'paramount_plus',
       'Peacock Premium': 'peacock',
       'Peacock': 'peacock',
-      'Max': 'hbo_max', // HBO Max rebranded
+
       'Prime Video': 'amazon_prime',
       'Disney+': 'disney_plus',
       // Add Amazon Video mapping
@@ -456,9 +456,7 @@ class StreamingService {
       'RAI Play': 'rai_play',
       'Movistar+': 'movistar_plus',
       'Atresplayer': 'atresplayer',
-      'HBO': 'hbo_max',
-      'HBO Go': 'hbo_max',
-      'HBO Now': 'hbo_max',
+
       // Anime and international platforms
       'Crunchyroll': 'crunchyroll',
       'Funimation': 'funimation',
@@ -494,13 +492,7 @@ class StreamingService {
         'color': 0xFF113CCF,
         'gradient': [0xFF113CCF, 0xFF0A1F8F],
       },
-      'hbo_max': {
-        'name': 'HBO Max',
-        'displayName': 'Watch on HBO Max',
-        'icon': '📺',
-        'color': 0xFF5F2EEA,
-        'gradient': [0xFF5F2EEA, 0xFF3F1F9A],
-      },
+
       'hulu': {
         'name': 'Hulu',
         'displayName': 'Watch on Hulu',

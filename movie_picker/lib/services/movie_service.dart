@@ -105,7 +105,6 @@ class MovieService {
     'netflix': '8',        // Netflix provider ID
     'amazon_prime': '119', // Amazon Prime provider ID  
     'disney_plus': '337',  // Disney+ provider ID
-    'hbo_max': '384',      // HBO Max provider ID
     'hulu': '15',          // Hulu provider ID
     'apple_tv': '350',     // Apple TV+ provider ID
     'paramount_plus': '531', // Paramount+ provider ID
