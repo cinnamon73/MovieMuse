@@ -67,6 +67,7 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
               children: [
                 const Text('Trailer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
+                // Single explicit fullscreen button (built-in disabled)
                 IconButton(
                   icon: const Icon(Icons.fullscreen),
                   onPressed: _controller == null ? null : () async {
@@ -89,13 +90,8 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
             if (_controller != null)
               AspectRatio(
                 aspectRatio: 16 / 9,
-                child: GestureDetector(
-                  onTap: () {
-                    // Ignore single taps to prevent accidental video stops
-                  },
-                  onDoubleTap: () {
-                    // Ignore double taps to prevent accidental video stops
-                  },
+                child: AbsorbPointer(
+                  absorbing: true, // block iframe taps to avoid pause/seek on accidental touches
                   child: YoutubePlayer(controller: _controller!),
                 ),
               )
@@ -181,13 +177,8 @@ class _FullscreenTrailerPageState extends State<_FullscreenTrailerPage> {
                   ? const SizedBox.shrink()
                   : AspectRatio(
                       aspectRatio: 16 / 9,
-                      child: GestureDetector(
-                        onTap: () {
-                          // Ignore single taps to prevent accidental video stops
-                        },
-                        onDoubleTap: () {
-                          // Ignore double taps to prevent accidental video stops
-                        },
+                      child: AbsorbPointer(
+                        absorbing: true,
                         child: YoutubePlayer(controller: _controller!),
                       ),
                     ),

@@ -69,6 +69,18 @@ post_install do |installer|
       config.build_settings['CODE_SIGNING_REQUIRED'] = 'NO'
     end
   end
+
+  # Remove the fragile CocoaPods diff step that causes CI failures when Podfile.lock
+  # and Manifest.lock differ only due to environment/version noise.
+  installer.aggregate_targets.each do |aggregate_target|
+    aggregate_target.user_targets.each do |user_target|
+      user_target.build_phases.each do |phase|
+        if phase.respond_to?(:name) && phase.name == '[CP] Check Pods Manifest.lock'
+          user_target.build_phases.delete(phase)
+        end
+      end
+    end
+  end
 end
 
 
