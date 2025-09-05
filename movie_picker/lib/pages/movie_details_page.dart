@@ -614,6 +614,9 @@ class _MovieDetailsPageState extends State<MovieDetailsPage> {
                               context: context,
                               isScrollControlled: true,
                               backgroundColor: Colors.black,
+                              useSafeArea: true,
+                              enableDrag: false, // Prevent accidental dismiss on slight drags
+                              isDismissible: false, // Close only via explicit UI
                               builder: (_) => SizedBox(
                                 height: MediaQuery.of(context).size.height * 0.6,
                                 child: TrailerPlayerSheet(youtubeUrl: trailerUrl),

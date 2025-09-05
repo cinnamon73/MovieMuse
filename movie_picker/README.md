@@ -76,3 +76,4 @@ This is a personal project. Feel free to fork and modify for your own use.
 ## License
 
 This project is for educational and personal use only. Movie data provided by TMDB.
+# MovieMuse iOS Build Wed Sep  3 11:19:27 BST 2025

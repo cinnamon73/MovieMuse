@@ -59,8 +59,8 @@ class DefaultFirebaseOptions {
   );
 
   static const FirebaseOptions ios = FirebaseOptions(
-    apiKey: 'AIzaSyDTL89x5xqN-Br113Om1sx0LV7ibE-yLEo',
-    appId: '1:581941386127:ios:your-ios-app-id',
+    apiKey: 'AIzaSyCEL3-yuu1Mrt_srzhWaWYsaY5mOSHLIes',
+    appId: '1:581941386127:ios:8b2cae0c3e864bb550c9fa',
     messagingSenderId: '581941386127',
     projectId: 'moviemuse-2bc27',
     storageBucket: 'moviemuse-2bc27.firebasestorage.app',

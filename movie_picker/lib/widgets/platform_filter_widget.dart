@@ -179,8 +179,7 @@ class _PlatformFilterWidgetState extends State<PlatformFilterWidget> {
         return 'Amazon Prime';
       case 'disney_plus':
         return 'Disney+';
-      case 'hbo_max':
-        return 'HBO Max';
+
       case 'hulu':
         return 'Hulu';
       case 'apple_tv':

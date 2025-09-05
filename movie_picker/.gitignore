@@ -48,3 +48,4 @@ app.*.map.json
 .env
 # App Store Connect private keys
 AuthKey_*.p8
+ios/Podfile.lock

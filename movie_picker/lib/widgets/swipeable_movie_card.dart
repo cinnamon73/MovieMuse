@@ -187,6 +187,10 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
           _offset += details.delta;
           _angle = 0.25 * _offset.dx / 200; // max ~14deg
         });
+        // Only hide trailer if there's significant movement (not just a light touch)
+        if (_showInlineTrailer && _offset.distance > 20) {
+          setState(() { _showInlineTrailer = false; });
+        }
       },
       onPanEnd: (details) {
         final velocity = details.velocity.pixelsPerSecond;

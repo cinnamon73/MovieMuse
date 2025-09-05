@@ -22,11 +22,14 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
     if (defaultTargetPlatform == TargetPlatform.android || defaultTargetPlatform == TargetPlatform.iOS) {
       final videoId = YoutubePlayerController.convertUrlToId(widget.youtubeUrl);
       final controller = YoutubePlayerController(
-        params: const YoutubePlayerParams(
-          showFullscreenButton: true,
-          strictRelatedVideos: true,
-          playsInline: true,
-        ),
+              params: const YoutubePlayerParams(
+        showFullscreenButton: false, // Disable built-in fullscreen button
+        strictRelatedVideos: true,
+        playsInline: true,
+        enableCaption: false,
+        showControls: true,
+        mute: false,
+      ),
       );
       _controller = controller;
       if (videoId != null) {
@@ -64,6 +67,7 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
               children: [
                 const Text('Trailer', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
                 const Spacer(),
+                // Single explicit fullscreen button (built-in disabled)
                 IconButton(
                   icon: const Icon(Icons.fullscreen),
                   onPressed: _controller == null ? null : () async {
@@ -86,7 +90,10 @@ class _TrailerPlayerSheetState extends State<TrailerPlayerSheet> {
             if (_controller != null)
               AspectRatio(
                 aspectRatio: 16 / 9,
-                child: YoutubePlayer(controller: _controller!),
+                child: AbsorbPointer(
+                  absorbing: true, // block iframe taps to avoid pause/seek on accidental touches
+                  child: YoutubePlayer(controller: _controller!),
+                ),
               )
             else
               Container(
@@ -131,9 +138,12 @@ class _FullscreenTrailerPageState extends State<_FullscreenTrailerPage> {
     final videoId = YoutubePlayerController.convertUrlToId(widget.youtubeUrl);
     final controller = YoutubePlayerController(
       params: const YoutubePlayerParams(
-        showFullscreenButton: false,
+        showFullscreenButton: false, // Disable built-in fullscreen button
         strictRelatedVideos: true,
         playsInline: true,
+        enableCaption: false,
+        showControls: true,
+        mute: false,
       ),
     );
     _controller = controller;
@@ -160,13 +170,29 @@ class _FullscreenTrailerPageState extends State<_FullscreenTrailerPage> {
     return Scaffold(
       backgroundColor: Colors.black,
       body: SafeArea(
-        child: Center(
-          child: _controller == null
-              ? const SizedBox.shrink()
-              : AspectRatio(
-                  aspectRatio: 16 / 9,
-                  child: YoutubePlayer(controller: _controller!),
-                ),
+        child: Stack(
+          children: [
+            Center(
+              child: _controller == null
+                  ? const SizedBox.shrink()
+                  : AspectRatio(
+                      aspectRatio: 16 / 9,
+                      child: AbsorbPointer(
+                        absorbing: true,
+                        child: YoutubePlayer(controller: _controller!),
+                      ),
+                    ),
+            ),
+            // Back button
+            Positioned(
+              top: 16,
+              left: 16,
+              child: IconButton(
+                icon: const Icon(Icons.arrow_back, color: Colors.white, size: 28),
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ),
+          ],
         ),
       ),
     );

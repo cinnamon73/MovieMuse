@@ -15,7 +15,6 @@ class FirebasePlatformService {
     'netflix': 'Netflix',
     'amazon_prime': 'Amazon Prime',
     'disney_plus': 'Disney+',
-    'hbo_max': 'HBO Max',
     'hulu': 'Hulu',
     'apple_tv': 'Apple TV+',
     'paramount_plus': 'Paramount+',

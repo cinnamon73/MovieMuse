@@ -24,8 +24,7 @@ class ProviderLinkService {
         return 'https://www.disneyplus.com/search/$query';
       case 'hulu':
         return 'https://www.hulu.com/search?q=$query';
-      case 'hbo_max':
-        return 'https://www.max.com/search?q=$query';
+
       case 'apple_tv':
         return 'https://tv.apple.com/search?term=$query';
       case 'paramount_plus':
