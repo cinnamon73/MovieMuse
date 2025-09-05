@@ -290,6 +290,8 @@ class _OptimizedMovieCard extends StatelessWidget {
   final bool showTrailer;
   final String? trailerUrl;
   final bool hasTrailer;
+  final RecommendationService? recommendationService;
+  final List<Movie>? contextPool;
 
   const _OptimizedMovieCard({
     required this.movie,
@@ -305,6 +307,8 @@ class _OptimizedMovieCard extends StatelessWidget {
     this.showTrailer = false,
     this.trailerUrl,
     this.hasTrailer = false,
+    this.recommendationService,
+    this.contextPool,
   });
 
   @override
@@ -322,6 +326,8 @@ class _OptimizedMovieCard extends StatelessWidget {
       recommendedBy: recommendedBy, // NEW: Pass recommender info
       inlineTrailerUrl: showTrailer ? trailerUrl : null,
       hasTrailer: hasTrailer,
+      recommendationService: recommendationService,
+      contextPool: contextPool,
     );
   }
 }
