@@ -3,6 +3,7 @@ import '../models/movie.dart';
 import '../services/movie_service.dart';
 import 'movie_card.dart';
 import 'trailer_player_sheet.dart';
+import '../services/recommendation_service.dart';
 
 class SwipeableMovieCard extends StatefulWidget {
   final Movie movie;
@@ -17,6 +18,8 @@ class SwipeableMovieCard extends StatefulWidget {
   final double? rating;
   final ValueChanged<double>? onRatingChanged;
   final String? recommendedBy; // NEW: Who recommended this movie
+  final RecommendationService? recommendationService; // Optional: for match/explain
+  final List<Movie>? contextPool; // Optional: for match percentile normalization
 
   const SwipeableMovieCard({
     required this.movie,
@@ -31,6 +34,8 @@ class SwipeableMovieCard extends StatefulWidget {
     this.rating,
     this.onRatingChanged,
     this.recommendedBy, // NEW: Optional recommender name
+    this.recommendationService,
+    this.contextPool,
     super.key,
   });
 
@@ -176,6 +181,8 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
         rating: widget.rating,
         onRatingChanged: widget.onRatingChanged,
         recommendedBy: widget.recommendedBy,
+        recommendationService: widget.recommendationService,
+        contextPool: widget.contextPool,
         hasTrailer: false,
       );
     }
@@ -258,6 +265,8 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
               showTrailer: _showInlineTrailer,
               trailerUrl: _inlineTrailerUrl,
               hasTrailer: _hasTrailer == true,
+              recommendationService: widget.recommendationService,
+              contextPool: widget.contextPool,
             ),
           );
         },

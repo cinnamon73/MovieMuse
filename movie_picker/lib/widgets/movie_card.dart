@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import '../models/movie.dart';
 import '../services/movie_service.dart';
+import '../services/recommendation_service.dart';
 import '../themes/typography_theme.dart';
 import '../themes/app_colors.dart';
 import '../utils/language_utils.dart';
@@ -20,6 +21,8 @@ class MovieCard extends StatelessWidget {
   final double? rating;
   final double swipeProgress; // -1 to 1, negative for left, positive for right
   final MovieService? movieService; // Optional for quality checking
+  final RecommendationService? recommendationService; // Optional for match/explain
+  final List<Movie>? contextPool; // Optional pool for match normalization
   final ValueChanged<double>? onRatingChanged;
   final String? recommendedBy; // NEW: Who recommended this movie
   final String? inlineTrailerUrl; // If set, show inline player over poster
@@ -35,6 +38,8 @@ class MovieCard extends StatelessWidget {
     this.rating,
     this.swipeProgress = 0,
     this.movieService,
+    this.recommendationService,
+    this.contextPool,
     this.onRatingChanged,
     this.recommendedBy, // NEW: Optional recommender name
     this.inlineTrailerUrl,
@@ -163,13 +168,20 @@ class MovieCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Row(
                   children: [
-                    Text(
-                      '⭐ ${movie.formattedScore}',
-                      style: AppTypography.ratingText.copyWith(
-                        color: Colors.amber,
-                        fontWeight: FontWeight.bold,
+                    // TMDB rating
+                    Text('⭐ ${movie.formattedScore}',
+                        style: AppTypography.ratingText.copyWith(
+                          color: Colors.amber,
+                          fontWeight: FontWeight.bold,
+                        )),
+                    const SizedBox(width: 8),
+                    // Match chip (tap to explain) if service + pool are available
+                    if (recommendationService != null && (contextPool?.isNotEmpty ?? false))
+                      _MatchChip(
+                        movie: movie,
+                        rec: recommendationService!,
+                        pool: contextPool!,
                       ),
-                    ),
                     const SizedBox(width: 16),
                     Text(
                       'Language: ${LanguageUtils.getFullLanguageName(movie.language)}',
@@ -546,6 +558,164 @@ class MovieCard extends StatelessWidget {
     }
   }
 
+}
+
+class _MatchChip extends StatefulWidget {
+  final Movie movie;
+  final RecommendationService rec;
+  final List<Movie> pool;
+  const _MatchChip({required this.movie, required this.rec, required this.pool});
+
+  @override
+  State<_MatchChip> createState() => _MatchChipState();
+}
+
+class _MatchChipState extends State<_MatchChip> {
+  double? _pct;
+  bool _loading = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _compute();
+  }
+
+  Future<void> _compute() async {
+    setState(() => _loading = true);
+    try {
+      await widget.rec.initialize();
+      final pct = await widget.rec.getMatchPercentForCurrentUser(
+        movie: widget.movie,
+        contextPool: widget.pool,
+      );
+      if (!mounted) return;
+      setState(() => _pct = pct);
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => _pct = null);
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _showWhyDialog() async {
+    try {
+      final breakdown = await widget.rec.getScoreBreakdownForCurrentUser(movie: widget.movie);
+      if (!mounted) return;
+      final components = Map<String, double>.from(breakdown['components'] as Map);
+      final details = Map<String, dynamic>.from(breakdown['details'] as Map);
+      final total = (breakdown['total'] as num).toDouble();
+
+      showDialog(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          backgroundColor: Colors.grey[900],
+          title: const Text('Why this recommendation?', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                if (_pct != null)
+                  Padding(
+                    padding: const EdgeInsets.only(bottom: 8.0),
+                    child: Text('${_pct!.toStringAsFixed(0)}% match for you', style: const TextStyle(color: Colors.amber, fontWeight: FontWeight.w600)),
+                  ),
+                Text('Score breakdown (internal units):', style: const TextStyle(color: Colors.white70)),
+                const SizedBox(height: 8),
+                ...components.entries
+                    .toList()
+                    ..sort((a,b)=>b.value.compareTo(a.value))
+                    .map((e) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 2),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                            children: [
+                              Text(_labelForComponent(e.key), style: const TextStyle(color: Colors.white)),
+                              Text(e.value.toStringAsFixed(2), style: const TextStyle(color: Colors.white70)),
+                            ],
+                          ),
+                        )),
+                const Divider(color: Colors.white12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    const Text('Total', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                    Text(total.toStringAsFixed(2), style: const TextStyle(color: Colors.white70, fontWeight: FontWeight.bold)),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                if (details['genre'] != null)
+                  Text('Top genres matched: ${(details['genre']['primary'] ?? '')}${(details['genre']['subgenre'] ?? '').isNotEmpty ? ", ${details['genre']['subgenre']}" : ''}', style: const TextStyle(color: Colors.white60)),
+                if (details['tags'] != null) ...[
+                  const SizedBox(height: 8),
+                  const Text('Influential tags:', style: TextStyle(color: Colors.white70)),
+                  const SizedBox(height: 4),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: List<Widget>.from((details['tags'] as List).map((t) => Chip(
+                          label: Text(t['tag'], style: const TextStyle(color: Colors.white)),
+                          backgroundColor: Colors.white10,
+                          side: BorderSide.none,
+                        ))),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(ctx).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        ),
+      );
+    } catch (_) {}
+  }
+
+  String _labelForComponent(String key) {
+    switch (key) {
+      case 'genre': return 'Genres';
+      case 'language': return 'Language';
+      case 'decade': return 'Decade';
+      case 'rating_similarity': return 'Rating pattern';
+      case 'tags': return 'Tags';
+      case 'quality': return 'Quality bonus';
+      case 'fallback': return 'Cold-start boost';
+      default: return key;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return InkWell(
+      onTap: _loading ? null : _showWhyDialog,
+      borderRadius: BorderRadius.circular(12),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        decoration: BoxDecoration(
+          color: Colors.white.withOpacity(0.08),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(color: Colors.white.withOpacity(0.12)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.psychology, color: Colors.amber, size: 14),
+            const SizedBox(width: 6),
+            Text(
+              _loading
+                  ? 'Match...'
+                  : (_pct != null ? '${_pct!.toStringAsFixed(0)}% match' : 'Why recommended?'),
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _InlineYouTube extends StatefulWidget {

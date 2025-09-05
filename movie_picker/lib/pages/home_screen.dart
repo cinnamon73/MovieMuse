@@ -3201,6 +3201,8 @@ class _HomeScreenState extends State<HomeScreen>
               isBookmarked: bookmarkedMovieIds.contains(forYouCardQueue.last.id),
               isWatched: watchedMovieIds.contains(forYouCardQueue.last.id),
               movieService: widget.movieService,
+              recommendationService: widget.recommendationService,
+              contextPool: forYouCardQueue.isNotEmpty ? List<Movie>.from(forYouCardQueue) : List<Movie>.from(filteredQueue),
               rating: movieRatings[forYouCardQueue.last.id] ?? 0.0,
               recommendedBy: movieRecommenders[forYouCardQueue.last.id],
             ),

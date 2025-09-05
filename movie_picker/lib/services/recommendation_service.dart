@@ -519,6 +519,163 @@ class RecommendationService {
     return score;
   }
 
+  // Explainability: return a breakdown of the score components for current user
+  Future<Map<String, dynamic>> getScoreBreakdownForCurrentUser({
+    required Movie movie,
+  }) async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      return {
+        'total': 0.0,
+        'components': <String, double>{},
+        'details': <String, dynamic>{},
+      };
+    }
+
+    final userPrefs = await _loadUserPreferencesForUser(userId);
+
+    double total = 0.0;
+    final components = <String, double>{};
+    final details = <String, dynamic>{};
+
+    // Adult safety gate
+    if (movie.adult) {
+      return {
+        'total': -9999.0,
+        'components': {'adult_filter': -9999.0},
+        'details': {'note': 'Adult content filtered'},
+      };
+    }
+
+    // Genre component
+    final genreBase = (userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0) +
+        (userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0);
+    final genreComponent = genreBase * (genreWeight * 1.5);
+    components['genre'] = genreComponent;
+    details['genre'] = {
+      'primary': movie.genre,
+      'subgenre': movie.subgenre,
+      'userPrefPrimary': userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0,
+      'userPrefSubgenre': userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0,
+    };
+    total += genreComponent;
+
+    // Language component
+    final langPref = userPrefs.languagePreferences[movie.language] ?? 0.0;
+    final langComponent = langPref * languageWeight;
+    components['language'] = langComponent;
+    details['language'] = {
+      'language': movie.language,
+      'userPref': langPref,
+    };
+    total += langComponent;
+
+    // Decade component
+    final decade = _getDecadeFromYear(movie.releaseDate);
+    double decadeComponent = 0.0;
+    if (decade != null) {
+      final decadePref = userPrefs.decadePreferences[decade] ?? 0.0;
+      decadeComponent = decadePref * decadeWeight;
+      components['decade'] = decadeComponent;
+      details['decade'] = {
+        'decade': decade,
+        'userPref': decadePref,
+      };
+      total += decadeComponent;
+    }
+
+    // Rating similarity component
+    final userAvgRating = userPrefs.averageUserRating;
+    double ratingComponent;
+    if (userAvgRating > 0) {
+      final diff = (movie.voteAverage - userAvgRating).abs();
+      if (diff <= 1.0) {
+        ratingComponent = movie.voteAverage * (ratingWeight * 1.5);
+      } else {
+        ratingComponent = movie.voteAverage * ratingWeight;
+      }
+    } else {
+      ratingComponent = movie.voteAverage * ratingWeight;
+    }
+    components['rating_similarity'] = ratingComponent;
+    details['rating_similarity'] = {
+      'movieVoteAverage': movie.voteAverage,
+      'userAverageRating': userAvgRating,
+    };
+    total += ratingComponent;
+
+    // Tags component
+    double tagScore = 0.0;
+    final contributingTags = <Map<String, dynamic>>[];
+    for (final keyword in movie.keywords) {
+      final k = keyword.toLowerCase().trim();
+      final liked = userPrefs.userLikedTags[k] ?? 0.0;
+      final disliked = userPrefs.userDislikedTags[k] ?? 0.0;
+      final contrib = (liked - disliked);
+      if (contrib.abs() > 0.0) {
+        contributingTags.add({'tag': k, 'liked': liked, 'disliked': disliked, 'contrib': contrib});
+      }
+      tagScore += contrib;
+    }
+    if (movie.keywords.isNotEmpty) {
+      tagScore = (tagScore / movie.keywords.length) * 0.45;
+    } else {
+      tagScore = 0.0;
+    }
+    components['tags'] = tagScore;
+    contributingTags.sort((a, b) => (b['contrib'] as double).compareTo(a['contrib'] as double));
+    details['tags'] = contributingTags.take(8).toList();
+    total += tagScore;
+
+    // Quality bonus
+    double qualityComponent = 0.0;
+    if (movie.voteAverage >= 7.0) {
+      qualityComponent = 2.0 * qualityWeight;
+    } else if (movie.voteAverage >= 6.0) {
+      qualityComponent = 1.0 * qualityWeight;
+    }
+    components['quality'] = qualityComponent;
+    details['quality'] = {'voteAverage': movie.voteAverage};
+    total += qualityComponent;
+
+    // Cold start fallback influences
+    final hasGenrePrefs = userPrefs.genrePreferences.isNotEmpty;
+    final hasRatings = userPrefs.totalRatedMovies > 0;
+    double fallbackComponent = 0.0;
+    String? fallbackReason;
+    if (!hasGenrePrefs && !hasRatings) {
+      if (movie.voteAverage >= 7.5) {
+        fallbackComponent += 2.0;
+      } else if (movie.voteAverage >= 7.0) {
+        fallbackComponent += 1.5;
+      } else if (movie.voteAverage >= 6.5) {
+        fallbackComponent += 1.0;
+      }
+      const mainstream = {
+        'action', 'comedy', 'drama', 'thriller', 'adventure', 'romance', 'animation', 'family'
+      };
+      if (mainstream.contains(movie.genre.toLowerCase()) || mainstream.contains(movie.subgenre.toLowerCase())) {
+        fallbackComponent += 0.5;
+      }
+      fallbackReason = 'cold_start';
+    } else if (!hasGenrePrefs && hasRatings && userAvgRating > 0) {
+      final diff = (movie.voteAverage - userAvgRating).abs();
+      if (diff <= 0.5) fallbackComponent += 1.5; else if (diff <= 1.0) fallbackComponent += 1.0;
+      fallbackReason = 'ratings_only';
+    }
+    if (fallbackComponent != 0.0) {
+      components['fallback'] = fallbackComponent;
+      details['fallback'] = {'reason': fallbackReason};
+      total += fallbackComponent;
+    }
+
+    return {
+      'total': total,
+      'components': components,
+      'details': details,
+    };
+  }
+
   // Get user insights for specific user
   Future<Map<String, dynamic>> getUserInsightsForUser(String userId) async {
     final userPrefs = await _loadUserPreferencesForUser(userId);
