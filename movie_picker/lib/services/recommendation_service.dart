@@ -431,10 +431,10 @@ class RecommendationService {
     // Safety: adult content should not be scored positively
     if (movie.adult) return -9999.0;
     
-    // Genre score
+    // Genre score - increased weight for better personalization
     final genreScore = (userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0) +
                       (userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0);
-    score += genreScore * genreWeight;
+    score += genreScore * (genreWeight * 1.5); // Increased from 0.3 to 0.45
     
     // Language score
     final languageScore = userPrefs.languagePreferences[movie.language] ?? 0.0;
@@ -447,8 +447,19 @@ class RecommendationService {
       score += decadeScore * decadeWeight;
     }
     
-    // Rating score (TMDB rating)
-    score += movie.voteAverage * ratingWeight;
+    // Enhanced rating score - prioritize movies similar to user's rated preferences
+    final userAvgRating = userPrefs.averageUserRating;
+    if (userAvgRating > 0) {
+      // Boost movies with ratings similar to user's average preference
+      final ratingDiff = (movie.voteAverage - userAvgRating).abs();
+      if (ratingDiff <= 1.0) {
+        score += movie.voteAverage * (ratingWeight * 1.5); // Boost similar ratings
+      } else {
+        score += movie.voteAverage * ratingWeight; // Standard weight
+      }
+    } else {
+      score += movie.voteAverage * ratingWeight;
+    }
     
     // Tag score (from keywords) — increase influence a bit for better alignment
     double tagScore = 0.0;
@@ -471,9 +482,20 @@ class RecommendationService {
       score += 1.0 * qualityWeight;
     }
 
-    // Fallback smoothing when user genre prefs are sparse
+    // Enhanced fallback for new users - prioritize high-quality, popular movies
     final hasGenrePrefs = userPrefs.genrePreferences.isNotEmpty;
-    if (!hasGenrePrefs) {
+    final hasRatings = userPrefs.totalRatedMovies > 0;
+    
+    if (!hasGenrePrefs && !hasRatings) {
+      // For completely new users, prioritize high-rated, popular movies
+      if (movie.voteAverage >= 7.5) {
+        score += 2.0; // Strong boost for highly-rated movies
+      } else if (movie.voteAverage >= 7.0) {
+        score += 1.5; // Good boost for well-rated movies
+      } else if (movie.voteAverage >= 6.5) {
+        score += 1.0; // Moderate boost for decent movies
+      }
+      
       // Lightly prefer mainstream genres to avoid randomness for cold-start
       const mainstream = {
         'action', 'comedy', 'drama', 'thriller', 'adventure', 'romance', 'animation', 'family'
@@ -481,9 +503,177 @@ class RecommendationService {
       if (mainstream.contains(movie.genre.toLowerCase()) || mainstream.contains(movie.subgenre.toLowerCase())) {
         score += 0.5; // small nudge
       }
+    } else if (!hasGenrePrefs && hasRatings) {
+      // User has ratings but no genre preferences yet - use rating patterns
+      if (userAvgRating > 0) {
+        // Prefer movies with ratings close to user's average
+        final ratingDiff = (movie.voteAverage - userAvgRating).abs();
+        if (ratingDiff <= 0.5) {
+          score += 1.5; // Strong preference for similar ratings
+        } else if (ratingDiff <= 1.0) {
+          score += 1.0; // Moderate preference
+        }
+      }
     }
     
     return score;
+  }
+
+  // Explainability: return a breakdown of the score components for current user
+  Future<Map<String, dynamic>> getScoreBreakdownForCurrentUser({
+    required Movie movie,
+  }) async {
+    final userId = _currentUserId;
+    if (userId == null) {
+      return {
+        'total': 0.0,
+        'components': <String, double>{},
+        'details': <String, dynamic>{},
+      };
+    }
+
+    final userPrefs = await _loadUserPreferencesForUser(userId);
+
+    double total = 0.0;
+    final components = <String, double>{};
+    final details = <String, dynamic>{};
+
+    // Adult safety gate
+    if (movie.adult) {
+      return {
+        'total': -9999.0,
+        'components': {'adult_filter': -9999.0},
+        'details': {'note': 'Adult content filtered'},
+      };
+    }
+
+    // Genre component
+    final genreBase = (userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0) +
+        (userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0);
+    final genreComponent = genreBase * (genreWeight * 1.5);
+    components['genre'] = genreComponent;
+    details['genre'] = {
+      'primary': movie.genre,
+      'subgenre': movie.subgenre,
+      'userPrefPrimary': userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0,
+      'userPrefSubgenre': userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0,
+    };
+    total += genreComponent;
+
+    // Language component
+    final langPref = userPrefs.languagePreferences[movie.language] ?? 0.0;
+    final langComponent = langPref * languageWeight;
+    components['language'] = langComponent;
+    details['language'] = {
+      'language': movie.language,
+      'userPref': langPref,
+    };
+    total += langComponent;
+
+    // Decade component
+    final decade = _getDecadeFromYear(movie.releaseDate);
+    double decadeComponent = 0.0;
+    if (decade != null) {
+      final decadePref = userPrefs.decadePreferences[decade] ?? 0.0;
+      decadeComponent = decadePref * decadeWeight;
+      components['decade'] = decadeComponent;
+      details['decade'] = {
+        'decade': decade,
+        'userPref': decadePref,
+      };
+      total += decadeComponent;
+    }
+
+    // Rating similarity component
+    final userAvgRating = userPrefs.averageUserRating;
+    double ratingComponent;
+    if (userAvgRating > 0) {
+      final diff = (movie.voteAverage - userAvgRating).abs();
+      if (diff <= 1.0) {
+        ratingComponent = movie.voteAverage * (ratingWeight * 1.5);
+      } else {
+        ratingComponent = movie.voteAverage * ratingWeight;
+      }
+    } else {
+      ratingComponent = movie.voteAverage * ratingWeight;
+    }
+    components['rating_similarity'] = ratingComponent;
+    details['rating_similarity'] = {
+      'movieVoteAverage': movie.voteAverage,
+      'userAverageRating': userAvgRating,
+    };
+    total += ratingComponent;
+
+    // Tags component
+    double tagScore = 0.0;
+    final contributingTags = <Map<String, dynamic>>[];
+    for (final keyword in movie.keywords) {
+      final k = keyword.toLowerCase().trim();
+      final liked = userPrefs.userLikedTags[k] ?? 0.0;
+      final disliked = userPrefs.userDislikedTags[k] ?? 0.0;
+      final contrib = (liked - disliked);
+      if (contrib.abs() > 0.0) {
+        contributingTags.add({'tag': k, 'liked': liked, 'disliked': disliked, 'contrib': contrib});
+      }
+      tagScore += contrib;
+    }
+    if (movie.keywords.isNotEmpty) {
+      tagScore = (tagScore / movie.keywords.length) * 0.45;
+    } else {
+      tagScore = 0.0;
+    }
+    components['tags'] = tagScore;
+    contributingTags.sort((a, b) => (b['contrib'] as double).compareTo(a['contrib'] as double));
+    details['tags'] = contributingTags.take(8).toList();
+    total += tagScore;
+
+    // Quality bonus
+    double qualityComponent = 0.0;
+    if (movie.voteAverage >= 7.0) {
+      qualityComponent = 2.0 * qualityWeight;
+    } else if (movie.voteAverage >= 6.0) {
+      qualityComponent = 1.0 * qualityWeight;
+    }
+    components['quality'] = qualityComponent;
+    details['quality'] = {'voteAverage': movie.voteAverage};
+    total += qualityComponent;
+
+    // Cold start fallback influences
+    final hasGenrePrefs = userPrefs.genrePreferences.isNotEmpty;
+    final hasRatings = userPrefs.totalRatedMovies > 0;
+    double fallbackComponent = 0.0;
+    String? fallbackReason;
+    if (!hasGenrePrefs && !hasRatings) {
+      if (movie.voteAverage >= 7.5) {
+        fallbackComponent += 2.0;
+      } else if (movie.voteAverage >= 7.0) {
+        fallbackComponent += 1.5;
+      } else if (movie.voteAverage >= 6.5) {
+        fallbackComponent += 1.0;
+      }
+      const mainstream = {
+        'action', 'comedy', 'drama', 'thriller', 'adventure', 'romance', 'animation', 'family'
+      };
+      if (mainstream.contains(movie.genre.toLowerCase()) || mainstream.contains(movie.subgenre.toLowerCase())) {
+        fallbackComponent += 0.5;
+      }
+      fallbackReason = 'cold_start';
+    } else if (!hasGenrePrefs && hasRatings && userAvgRating > 0) {
+      final diff = (movie.voteAverage - userAvgRating).abs();
+      if (diff <= 0.5) fallbackComponent += 1.5; else if (diff <= 1.0) fallbackComponent += 1.0;
+      fallbackReason = 'ratings_only';
+    }
+    if (fallbackComponent != 0.0) {
+      components['fallback'] = fallbackComponent;
+      details['fallback'] = {'reason': fallbackReason};
+      total += fallbackComponent;
+    }
+
+    return {
+      'total': total,
+      'components': components,
+      'details': details,
+    };
   }
 
   // Get user insights for specific user

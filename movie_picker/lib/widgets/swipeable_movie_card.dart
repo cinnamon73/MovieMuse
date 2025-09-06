@@ -3,6 +3,7 @@ import '../models/movie.dart';
 import '../services/movie_service.dart';
 import 'movie_card.dart';
 import 'trailer_player_sheet.dart';
+import '../services/recommendation_service.dart';
 
 class SwipeableMovieCard extends StatefulWidget {
   final Movie movie;
@@ -17,6 +18,8 @@ class SwipeableMovieCard extends StatefulWidget {
   final double? rating;
   final ValueChanged<double>? onRatingChanged;
   final String? recommendedBy; // NEW: Who recommended this movie
+  final RecommendationService? recommendationService; // Optional: for match/explain
+  final List<Movie>? contextPool; // Optional: for match percentile normalization
 
   const SwipeableMovieCard({
     required this.movie,
@@ -31,6 +34,8 @@ class SwipeableMovieCard extends StatefulWidget {
     this.rating,
     this.onRatingChanged,
     this.recommendedBy, // NEW: Optional recommender name
+    this.recommendationService,
+    this.contextPool,
     super.key,
   });
 
@@ -176,33 +181,23 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
         rating: widget.rating,
         onRatingChanged: widget.onRatingChanged,
         recommendedBy: widget.recommendedBy,
+        recommendationService: widget.recommendationService,
+        contextPool: widget.contextPool,
         hasTrailer: false,
       );
     }
 
     return GestureDetector(
       onDoubleTap: _toggleInlineTrailer,
-      onPanDown: (_) {
-        // Defensive: if user starts a swipe while trailer is visible, hide it immediately
-        if (_showInlineTrailer) {
-          setState(() {
-            _showInlineTrailer = false;
-          });
-        }
-      },
-      onPanStart: (_) {
-        // If a trailer is playing inline, hide it immediately to avoid overlay issues while swiping
-        if (_showInlineTrailer) {
-          setState(() {
-            _showInlineTrailer = false;
-          });
-        }
-      },
       onPanUpdate: (details) {
         setState(() {
           _offset += details.delta;
           _angle = 0.25 * _offset.dx / 200; // max ~14deg
         });
+        // Only hide trailer if there's significant movement (not just a light touch)
+        if (_showInlineTrailer && _offset.distance > 20) {
+          setState(() { _showInlineTrailer = false; });
+        }
       },
       onPanEnd: (details) {
         final velocity = details.velocity.pixelsPerSecond;
@@ -270,6 +265,8 @@ class _SwipeableMovieCardState extends State<SwipeableMovieCard>
               showTrailer: _showInlineTrailer,
               trailerUrl: _inlineTrailerUrl,
               hasTrailer: _hasTrailer == true,
+              recommendationService: widget.recommendationService,
+              contextPool: widget.contextPool,
             ),
           );
         },
@@ -293,6 +290,8 @@ class _OptimizedMovieCard extends StatelessWidget {
   final bool showTrailer;
   final String? trailerUrl;
   final bool hasTrailer;
+  final RecommendationService? recommendationService;
+  final List<Movie>? contextPool;
 
   const _OptimizedMovieCard({
     required this.movie,
@@ -308,6 +307,8 @@ class _OptimizedMovieCard extends StatelessWidget {
     this.showTrailer = false,
     this.trailerUrl,
     this.hasTrailer = false,
+    this.recommendationService,
+    this.contextPool,
   });
 
   @override
@@ -325,6 +326,8 @@ class _OptimizedMovieCard extends StatelessWidget {
       recommendedBy: recommendedBy, // NEW: Pass recommender info
       inlineTrailerUrl: showTrailer ? trailerUrl : null,
       hasTrailer: hasTrailer,
+      recommendationService: recommendationService,
+      contextPool: contextPool,
     );
   }
 }

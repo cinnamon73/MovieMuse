@@ -2046,6 +2046,7 @@ class _HomeScreenState extends State<HomeScreen>
                   // Check if there are unrated movies (excluding skipped movies with rating = -1)
                   final unratedMovies = watchedMovies.where((m) => (movieRatings[m.id] ?? 0.0) == 0.0).toList();
                   
+                  // Always check for unrated movies when entering watched page
                   if (unratedMovies.isNotEmpty && !_skipAllPressed) {
                     // Show rating screen first
                     return RatingScreen(
@@ -2110,14 +2111,14 @@ class _HomeScreenState extends State<HomeScreen>
                       },
                       onBackPressed: _showMainView,
                       onGoToWatched: () {
-                        // Mark all unrated movies as needing rating again (do not set -1)
-                        final unratedMovies = watchedMovies.where((m) => (movieRatings[m.id] ?? 0.0) == 0.0).toList();
-                        for (final movie in unratedMovies) {
-                          // Mark as skipped by setting a special rating value (e.g., -1)
-                          movieRatings[movie.id] = -1.0;
+                        // Reset all skipped movies (rating = -1) back to unrated (0.0) so they appear in rating page again
+                        final skippedMovies = watchedMovies.where((m) => (movieRatings[m.id] ?? 0.0) == -1.0).toList();
+                        for (final movie in skippedMovies) {
+                          // Reset to unrated so they show up in rating page next time
+                          movieRatings[movie.id] = 0.0;
                           if (currentUserData != null) {
-                            currentUserData!.movieRatings[movie.id] = -1.0;
-                            widget.userDataService.setMovieRatingWithUserData(currentUserData!, movie.id, -1.0);
+                            currentUserData!.movieRatings.remove(movie.id); // Remove from ratings map
+                            widget.userDataService.setMovieRatingWithUserData(currentUserData!, movie.id, 0.0);
                           }
                         }
                         
@@ -3200,6 +3201,8 @@ class _HomeScreenState extends State<HomeScreen>
               isBookmarked: bookmarkedMovieIds.contains(forYouCardQueue.last.id),
               isWatched: watchedMovieIds.contains(forYouCardQueue.last.id),
               movieService: widget.movieService,
+              recommendationService: widget.recommendationService,
+              contextPool: forYouCardQueue.isNotEmpty ? List<Movie>.from(forYouCardQueue) : List<Movie>.from(filteredQueue),
               rating: movieRatings[forYouCardQueue.last.id] ?? 0.0,
               recommendedBy: movieRecommenders[forYouCardQueue.last.id],
             ),
