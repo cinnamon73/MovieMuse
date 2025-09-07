@@ -606,6 +606,10 @@ class _MatchChipState extends State<_MatchChip> {
       final details = Map<String, dynamic>.from(breakdown['details'] as Map);
       final total = (breakdown['total'] as num).toDouble();
 
+      // Prepare sorted breakdown entries for stable rendering
+      final sortedEntries = components.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -623,9 +627,7 @@ class _MatchChipState extends State<_MatchChip> {
                   ),
                 Text('Score breakdown (internal units):', style: const TextStyle(color: Colors.white70)),
                 const SizedBox(height: 8),
-                ...components.entries
-                    .toList()
-                    ..sort((a,b)=>b.value.compareTo(a.value))
+                ...sortedEntries
                     .map((e) => Padding(
                           padding: const EdgeInsets.symmetric(vertical: 2),
                           child: Row(
@@ -635,7 +637,8 @@ class _MatchChipState extends State<_MatchChip> {
                               Text(e.value.toStringAsFixed(2), style: const TextStyle(color: Colors.white70)),
                             ],
                           ),
-                        )),
+                        ))
+                    .toList(),
                 const Divider(color: Colors.white12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
