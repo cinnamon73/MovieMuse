@@ -431,10 +431,10 @@ class RecommendationService {
     // Safety: adult content should not be scored positively
     if (movie.adult) return -9999.0;
     
-    // Genre score
+    // Genre score - increased weight for better personalization
     final genreScore = (userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0) +
                       (userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0);
-    score += genreScore * genreWeight;
+    score += genreScore * (genreWeight * 1.5); // Increased from 0.3 to 0.45
     
     // Language score
     final languageScore = userPrefs.languagePreferences[movie.language] ?? 0.0;
@@ -447,8 +447,19 @@ class RecommendationService {
       score += decadeScore * decadeWeight;
     }
     
-    // Rating score (TMDB rating)
-    score += movie.voteAverage * ratingWeight;
+    // Enhanced rating score - prioritize movies similar to user's rated preferences
+    final userAvgRating = userPrefs.averageUserRating;
+    if (userAvgRating > 0) {
+      // Boost movies with ratings similar to user's average preference
+      final ratingDiff = (movie.voteAverage - userAvgRating).abs();
+      if (ratingDiff <= 1.0) {
+        score += movie.voteAverage * (ratingWeight * 1.5); // Boost similar ratings
+      } else {
+        score += movie.voteAverage * ratingWeight; // Standard weight
+      }
+    } else {
+      score += movie.voteAverage * ratingWeight;
+    }
     
     // Tag score (from keywords) — increase influence a bit for better alignment
     double tagScore = 0.0;
@@ -471,15 +482,37 @@ class RecommendationService {
       score += 1.0 * qualityWeight;
     }
 
-    // Fallback smoothing when user genre prefs are sparse
+    // Enhanced fallback for new users - prioritize high-quality, popular movies
     final hasGenrePrefs = userPrefs.genrePreferences.isNotEmpty;
-    if (!hasGenrePrefs) {
+    final hasRatings = userPrefs.totalRatedMovies > 0;
+    
+    if (!hasGenrePrefs && !hasRatings) {
+      // For completely new users, prioritize high-rated, popular movies
+      if (movie.voteAverage >= 7.5) {
+        score += 2.0; // Strong boost for highly-rated movies
+      } else if (movie.voteAverage >= 7.0) {
+        score += 1.5; // Good boost for well-rated movies
+      } else if (movie.voteAverage >= 6.5) {
+        score += 1.0; // Moderate boost for decent movies
+      }
+      
       // Lightly prefer mainstream genres to avoid randomness for cold-start
       const mainstream = {
         'action', 'comedy', 'drama', 'thriller', 'adventure', 'romance', 'animation', 'family'
       };
       if (mainstream.contains(movie.genre.toLowerCase()) || mainstream.contains(movie.subgenre.toLowerCase())) {
         score += 0.5; // small nudge
+      }
+    } else if (!hasGenrePrefs && hasRatings) {
+      // User has ratings but no genre preferences yet - use rating patterns
+      if (userAvgRating > 0) {
+        // Prefer movies with ratings close to user's average
+        final ratingDiff = (movie.voteAverage - userAvgRating).abs();
+        if (ratingDiff <= 0.5) {
+          score += 1.5; // Strong preference for similar ratings
+        } else if (ratingDiff <= 1.0) {
+          score += 1.0; // Moderate preference
+        }
       }
     }
     

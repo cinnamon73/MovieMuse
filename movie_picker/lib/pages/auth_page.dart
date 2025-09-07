@@ -161,18 +161,41 @@ class _AuthPageState extends State<AuthPage> {
     if (!_formKey.currentState!.validate()) return;
     setState(() { _isLoading = true; _error = null; });
     try {
+      print('🚀 Starting account creation...');
       await widget.authService.signUpWithEmailEphemeral(
         _emailController.text.trim(),
         _passwordController.text,
         username: _usernameController.text.trim(),
       );
-      try { await widget.userDataService.updateUsername(_usernameController.text.trim()); } catch (_) {}
-      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
+      print('✅ Account created successfully');
+      
+      try { 
+        await widget.userDataService.updateUsername(_usernameController.text.trim());
+        print('✅ Username updated successfully');
+      } catch (e) {
+        print('⚠️ Username update failed: $e');
+      }
+      
+      try {
+        await FirebaseAuth.instance.currentUser?.sendEmailVerification();
+        print('✅ Email verification sent');
+      } catch (e) {
+        print('⚠️ Email verification failed: $e');
+      }
+      
       widget.onAuthChanged?.call();
-      if (mounted) Navigator.pop(context);
+      if (mounted) {
+        print('✅ Navigating back...');
+        Navigator.pop(context);
+      }
     } catch (e) {
+      print('❌ Account creation failed: $e');
       setState(() { _error = e is FirebaseAuthException ? widget.authService.getErrorMessage(e) : 'Something went wrong'; });
-    } finally { setState(() { _isLoading = false; }); }
+    } finally { 
+      if (mounted) {
+        setState(() { _isLoading = false; });
+      }
+    }
   }
 
   Future<void> _signIn() async {
@@ -444,7 +467,14 @@ class _AuthPageState extends State<AuthPage> {
                             padding: const EdgeInsets.symmetric(vertical: 14),
                           ),
                           child: _isLoading
-                            ? const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white)))
+                            ? Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const SizedBox(height: 20, width: 20, child: CircularProgressIndicator(strokeWidth: 2, valueColor: AlwaysStoppedAnimation(Colors.white))),
+                                  const SizedBox(width: 12),
+                                  Text(_isSignUpTab ? 'Creating Account...' : 'Signing In...', style: const TextStyle(color: Colors.white)),
+                                ],
+                              )
                             : Text(_isSignUpTab ? 'Create Account' : 'Sign In'),
                         ),
                       ),
