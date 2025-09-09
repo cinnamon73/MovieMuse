@@ -6,7 +6,6 @@ import '../services/recommendation_service.dart';
 import '../themes/typography_theme.dart';
 import '../themes/app_colors.dart';
 import '../utils/language_utils.dart';
-import '../widgets/friend_selection_modal.dart';
 import '../widgets/bookmark_badge.dart';
 import 'package:youtube_player_iframe/youtube_player_iframe.dart';
 import 'package:flutter/foundation.dart' show defaultTargetPlatform, TargetPlatform;
@@ -606,6 +605,22 @@ class _MatchChipState extends State<_MatchChip> {
       final details = Map<String, dynamic>.from(breakdown['details'] as Map);
       final total = (breakdown['total'] as num).toDouble();
 
+      // Build component rows deterministically
+      final List<MapEntry<String, double>> _sortedComponents = components.entries.toList()
+        ..sort((a, b) => b.value.compareTo(a.value));
+      final List<Widget> _componentRows = _sortedComponents
+          .map((e) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 2),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(_labelForComponent(e.key), style: const TextStyle(color: Colors.white)),
+                    Text(e.value.toStringAsFixed(2), style: const TextStyle(color: Colors.white70)),
+                  ],
+                ),
+              ))
+          .toList();
+
       showDialog(
         context: context,
         builder: (ctx) => AlertDialog(
@@ -623,19 +638,7 @@ class _MatchChipState extends State<_MatchChip> {
                   ),
                 Text('Score breakdown (internal units):', style: const TextStyle(color: Colors.white70)),
                 const SizedBox(height: 8),
-                ...components.entries
-                    .toList()
-                    ..sort((a,b)=>b.value.compareTo(a.value))
-                    .map((e) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 2),
-                          child: Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Text(_labelForComponent(e.key), style: const TextStyle(color: Colors.white)),
-                              Text(e.value.toStringAsFixed(2), style: const TextStyle(color: Colors.white70)),
-                            ],
-                          ),
-                        )),
+                ..._componentRows,
                 const Divider(color: Colors.white12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,

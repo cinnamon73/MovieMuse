@@ -2826,9 +2826,15 @@ class MovieService {
     _movieCache.clear();
     _cachedMovieIds.clear();
     
-    // Shuffle platform movies for variety
+    // Shuffle platform movies for baseline variety
     final shuffledPlatformMovies = List<Movie>.from(_platformMovieStack);
     shuffledPlatformMovies.shuffle();
+
+    // Enforce original-language filter if set (avoid dubs slipping through)
+    final String? selectedLang = _selectedLanguage;
+    final List<Movie> langFiltered = selectedLang == null || selectedLang.isEmpty
+        ? shuffledPlatformMovies
+        : shuffledPlatformMovies.where((m) => m.language == selectedLang).toList();
     
     // Build blacklist from current user data if available
     final excluded = <int>{};
@@ -2841,8 +2847,8 @@ class MovieService {
       }
     } catch (_) {}
     
-    // Add to main movie cache, skipping excluded
-    for (final movie in shuffledPlatformMovies) {
+    // Add to main movie cache, skipping excluded and respecting language
+    for (final movie in langFiltered) {
       if (excluded.contains(movie.id)) continue;
       if (!_cachedMovieIds.contains(movie.id)) {
         _movieCache.add(movie);

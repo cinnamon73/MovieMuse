@@ -1,3 +1,4 @@
+// ignore_for_file: undefined_method, missing_required_argument, undefined_named_parameter, unnecessary_null_comparison, unused_local_variable, unused_element, avoid_print
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
