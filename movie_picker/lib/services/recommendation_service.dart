@@ -20,6 +20,7 @@ class RecommendationService {
 
   // Weights for different factors in recommendation scoring
   static const double genreWeight = 0.3;
+  static const double subgenreWeight = 0.2;
   static const double languageWeight = 0.15;
   static const double decadeWeight = 0.2;
   static const double ratingWeight = 0.25;
@@ -417,11 +418,16 @@ class RecommendationService {
       return bm.voteAverage.compareTo(am.voteAverage);
     });
 
-    // Return top movies
-    return scoredMovies
-        .take(limit)
+    // Materialize scored list in rank order
+    final rankedMovies = scoredMovies
         .map((item) => item['movie'] as Movie)
         .toList();
+
+    // Take a wider slice to allow better diversity, then re-rank
+    final widened = rankedMovies.take(limit * 2).toList();
+    final diversified = diversityReRank(widened, window: 6, perSeriesLimit: 1).take(limit).toList();
+
+    return diversified;
   }
 
   // Calculate personalized score for a movie for specific user
@@ -431,10 +437,19 @@ class RecommendationService {
     // Safety: adult content should not be scored positively
     if (movie.adult) return -9999.0;
     
-    // Genre score - increased weight for better personalization
-    final genreScore = (userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0) +
-                      (userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0);
-    score += genreScore * (genreWeight * 1.5); // Increased from 0.3 to 0.45
+    // Genre and subgenre scores — emphasize subgenre more, esp. for niche subgenres
+    final primaryGenrePref = userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0;
+    final subgenrePref = userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0;
+    score += primaryGenrePref * (genreWeight * 1.2);
+    score += subgenrePref * (subgenreWeight * 1.6);
+
+    // Niche subgenre bonus (outside mainstream buckets)
+    const mainstream = {
+      'action', 'comedy', 'drama', 'thriller', 'adventure', 'romance', 'animation', 'family'
+    };
+    if (!mainstream.contains(movie.subgenre.toLowerCase()) && subgenrePref > 0) {
+      score += subgenrePref * 0.1;
+    }
     
     // Language score
     final languageScore = userPrefs.languagePreferences[movie.language] ?? 0.0;
@@ -519,6 +534,90 @@ class RecommendationService {
     return score;
   }
 
+  // Diversity re-ranking to avoid clumping (e.g., sequels/series) and improve variety
+  // - Limits repeated appearances from the same inferred series within a sliding window
+  // - Spreads genres/subgenres by preferring less-recently used categories
+  List<Movie> diversityReRank(
+    List<Movie> movies, {
+    int window = 6,
+    int perSeriesLimit = 1,
+  }) {
+    if (movies.length <= 2) return List<Movie>.from(movies);
+
+    final result = <Movie>[];
+    final recentGenres = <String>[];
+    final recentSubgenres = <String>[];
+    final recentSeries = <String>[];
+
+    String seriesKey(String title) {
+      final lower = title.toLowerCase().trim();
+      // Take left of colon/dash as base
+      final base = lower.split(':').first.split('-').first.trim();
+      // Strip common sequel suffixes (roman numerals/numbers)
+      final cleaned = base.replaceAll(RegExp(r"\b(part|episode)\s*[ivx0-9]+$", caseSensitive: false), '').trim();
+      return cleaned.isEmpty ? lower : cleaned;
+    }
+
+    bool violatesSeriesLimit(Movie m) {
+      final key = seriesKey(m.title);
+      int count = 0;
+      for (final s in recentSeries) {
+        if (s == key) count++;
+      }
+      return count >= perSeriesLimit;
+    }
+
+    int genrePenalty(Movie m) {
+      int pen = 0;
+      if (recentGenres.contains(m.genre.toLowerCase())) pen += 1;
+      if (recentSubgenres.contains(m.subgenre.toLowerCase())) pen += 1;
+      return pen;
+    }
+
+    final remaining = List<Movie>.from(movies);
+    while (remaining.isNotEmpty) {
+      // Prefer a movie that doesn't violate series limit and improves variety
+      Movie? best;
+      int bestPenalty = 1 << 30;
+
+      for (final m in remaining) {
+        if (violatesSeriesLimit(m)) continue;
+        final p = genrePenalty(m);
+        if (p < bestPenalty) {
+          best = m;
+          bestPenalty = p;
+          if (p == 0) break; // perfect pick
+        }
+      }
+
+      // Fallback if all violate series limit: relax and pick with lowest penalty
+      if (best == null) {
+        for (final m in remaining) {
+          final p = genrePenalty(m);
+          if (p < bestPenalty) {
+            best = m;
+            bestPenalty = p;
+          }
+        }
+      }
+
+      final pick = best ?? remaining.first;
+      result.add(pick);
+      remaining.remove(pick);
+
+      // Update recent windows and series counts
+      final key = seriesKey(pick.title);
+      recentSeries.add(key);
+      recentGenres.add(pick.genre.toLowerCase());
+      recentSubgenres.add(pick.subgenre.toLowerCase());
+      if (recentGenres.length > window) recentGenres.removeAt(0);
+      if (recentSubgenres.length > window) recentSubgenres.removeAt(0);
+      if (recentSeries.length > window) recentSeries.removeAt(0);
+    }
+
+    return result;
+  }
+
   // Explainability: return a breakdown of the score components for current user
   Future<Map<String, dynamic>> getScoreBreakdownForCurrentUser({
     required Movie movie,
@@ -547,18 +646,34 @@ class RecommendationService {
       };
     }
 
-    // Genre component
-    final genreBase = (userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0) +
-        (userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0);
-    final genreComponent = genreBase * (genreWeight * 1.5);
-    components['genre'] = genreComponent;
+    // Genre components (primary and subgenre shown separately)
+    final gPrimary = userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0;
+    final gSub = userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0;
+    final genrePrimaryComponent = gPrimary * (genreWeight * 1.2);
+    final subgenreComponent = gSub * (subgenreWeight * 1.6);
+    components['genre_primary'] = genrePrimaryComponent;
+    components['subgenre'] = subgenreComponent;
     details['genre'] = {
       'primary': movie.genre,
       'subgenre': movie.subgenre,
-      'userPrefPrimary': userPrefs.genrePreferences[movie.genre.toLowerCase()] ?? 0.0,
-      'userPrefSubgenre': userPrefs.genrePreferences[movie.subgenre.toLowerCase()] ?? 0.0,
+      'userPrefPrimary': gPrimary,
+      'userPrefSubgenre': gSub,
     };
-    total += genreComponent;
+    total += genrePrimaryComponent + subgenreComponent;
+
+    // Niche subgenre bonus detail
+    const mainstream = {
+      'action', 'comedy', 'drama', 'thriller', 'adventure', 'romance', 'animation', 'family'
+    };
+    if (!mainstream.contains(movie.subgenre.toLowerCase()) && gSub > 0) {
+      final nicheBonus = gSub * 0.1;
+      components['niche_subgenre_bonus'] = nicheBonus;
+      details['niche_subgenre_bonus'] = {
+        'subgenre': movie.subgenre,
+        'userPrefSubgenre': gSub,
+      };
+      total += nicheBonus;
+    }
 
     // Language component
     final langPref = userPrefs.languagePreferences[movie.language] ?? 0.0;

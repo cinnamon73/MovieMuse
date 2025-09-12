@@ -124,6 +124,17 @@ class _HomeScreenState extends State<HomeScreen>
     _applyFiltersInstantly();
   }
 
+  // Header actions
+  void _onSearchPressed() {
+    // TODO: Wire to search page if available
+    debugPrint('🔎 Search tapped');
+  }
+
+  void _onSettingsPressed() {
+    // TODO: Wire to settings page if available
+    debugPrint('⚙️ Settings tapped');
+  }
+
   // Check if we should load more platform movies
   void _checkForMorePlatformMovies(int currentIndex) {
     if (selectedPlatform != null) {
@@ -369,6 +380,9 @@ class _HomeScreenState extends State<HomeScreen>
       // Initialize recommendation service
       await widget.recommendationService.initialize();
 
+      // Wire user service into movie service so platform mode can enforce blacklist
+      widget.movieService.setUserService(widget.userDataService);
+
       // Start preloading movies in the background
       await widget.movieService.preloadMovies(
         targetCount: 300,
@@ -409,8 +423,20 @@ class _HomeScreenState extends State<HomeScreen>
       if (selectedPlatform != null) {
         debugPrint('🎯 Platform filter active: $selectedPlatform');
         
-        // Get platform movies from the service
-        final platformMovies = await widget.movieService.filterCachedMovies();
+        // Build blacklist
+        final excludeIds = <int>{};
+        final currentUser = await widget.userDataService.getCurrentUserData();
+        if (currentUser != null) {
+          excludeIds.addAll(currentUser.watchedMovieIds);
+          excludeIds.addAll(currentUser.skippedMovieIds);
+          excludeIds.addAll(currentUser.bookmarkedMovieIds);
+        }
+        
+        // Get platform movies from the service with language + blacklist applied
+        final platformMovies = await widget.movieService.filterCachedMovies(
+          language: selectedLanguage,
+          excludeIds: excludeIds,
+        );
         
         debugPrint('📊 Found ${platformMovies.length} platform movies');
         
@@ -1687,47 +1713,33 @@ class _HomeScreenState extends State<HomeScreen>
                     begin: Alignment.topCenter,
                     end: Alignment.bottomCenter,
                     colors: [
-                      Colors.black.withValues(alpha: 0.95),
-                      Colors.black.withValues(alpha: 0.8),
+                      Colors.black.withValues(alpha: 0.98),
+                      Colors.black.withValues(alpha: 0.85),
                       Colors.transparent,
                     ],
                   ),
                 ),
               ),
-              title: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(
-                  gradient: LinearGradient(
-                    colors: [
-                      AppColors.primary.withValues(alpha: 0.1),
-                      AppColors.secondary.withValues(alpha: 0.05),
-                    ],
-                    begin: Alignment.centerLeft,
-                    end: Alignment.centerRight,
-                  ),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: AppColors.primary.withValues(alpha: 0.3),
-                    width: 1,
-                  ),
-                ),
-                child: Text(
-                'MovieMuse',
-                style: AppTypography.appBarTitle.copyWith(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.8,
-                    shadows: [
-                      Shadow(
-                        color: AppColors.primary.withValues(alpha: 0.4),
-                        blurRadius: 6,
-                        offset: const Offset(0, 1),
+              titleSpacing: 0,
+              title: Padding(
+                padding: const EdgeInsets.only(left: 16.0),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.start,
+                  children: [
+                    Icon(Icons.movie_creation_outlined, color: AppColors.primary, size: 20),
+                    const SizedBox(width: 8),
+                    Text(
+                      'MovieMuse',
+                      style: AppTypography.appBarTitle.copyWith(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: 0.6,
                       ),
-                    ],
-                  ),
+                    ),
+                  ],
                 ),
               ),
-              centerTitle: true,
+              centerTitle: false,
               bottom: PreferredSize(
                 preferredSize: const Size.fromHeight(60),
                 child: Container(
